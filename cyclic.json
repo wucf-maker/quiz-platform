@@ -1,0 +1,8 @@
+{
+  "build": "npm install --legacy-peer-deps && npm run build",
+  "start": "npm start",
+  "port": 3000,
+  "deployment": {
+    "format": "single"
+  }
+}

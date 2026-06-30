@@ -1,13 +1,16 @@
-// Preconfigured storage helpers for Manus WebDev templates
-// 兩種模式：
-//   1. Manus Forge（預設） — 透過 presigned URL 上傳到 S3
-//   2. 本地檔案系統 — 透過 LOCAL_STORAGE_DIR 環境變數切換
+// Preconfigured storage helpers — 支援三種模式：
+//   1. Manus Forge（預設）— 透過 presigned URL 上傳到 S3（Manus 平台專用）
+//   2. Cloudflare R2 — 透過 S3 相容 API 上傳到 R2 bucket（推薦：永久免費 10GB）
+//   3. 本地檔案系統 — 直接寫到磁碟（自架 / Render + Disk）
 //
-// 如果 BUILT_IN_FORGE_API_URL + BUILT_IN_FORGE_API_KEY 都有設定 → 用 Forge
-// 否則 fallback 到本地（適合自架 / Render / Fly.io）
+// 模式選擇（按優先級）：
+//   - 有 BUILT_IN_FORGE_API_URL + BUILT_IN_FORGE_API_KEY → Forge
+//   - 有 R2_* 4 個變數 → R2
+//   - 否則 → 本地
 
 import fs from "fs/promises";
 import path from "path";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { ENV } from "./_core/env";
 
 function getForgeConfig() {
@@ -23,9 +26,46 @@ function getForgeConfig() {
   return { forgeUrl: forgeUrl.replace(/\/+$/, ""), forgeKey };
 }
 
-/** 是否使用本地儲存 */
+/** 是否使用本地儲存（最優先）*/
 function useLocalStorage(): boolean {
-  return !ENV.forgeApiUrl || !ENV.forgeApiKey;
+  return !ENV.forgeApiUrl && !ENV.forgeApiKey && !isR2Configured();
+}
+
+/** R2 是否設定齊全 */
+function isR2Configured(): boolean {
+  return !!(
+    process.env.R2_ACCOUNT_ID &&
+    process.env.R2_ACCESS_KEY_ID &&
+    process.env.R2_SECRET_ACCESS_KEY &&
+    process.env.R2_BUCKET
+  );
+}
+
+let _r2Client: S3Client | null = null;
+function getR2Client(): S3Client {
+  if (!_r2Client) {
+    _r2Client = new S3Client({
+      region: "auto",
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+      },
+    });
+  }
+  return _r2Client;
+}
+
+function getR2Bucket(): string {
+  return process.env.R2_BUCKET!;
+}
+
+/** R2 public URL（假設 bucket 已開啟 public read）*/
+function getR2PublicUrl(key: string): string {
+  // 如果有設定 R2_PUBLIC_BASE，用它；否則用預設 URL
+  const base = process.env.R2_PUBLIC_BASE
+    ?? `https://${process.env.R2_BUCKET}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  return `${base.replace(/\/+$/, "")}/${key}`;
 }
 
 function getLocalDir(): string {
@@ -45,8 +85,9 @@ function appendHashSuffix(relKey: string): string {
 
 /**
  * 儲存一個檔案。
- * - Forge 模式：上傳到 S3，回 /manus-storage/{key} URL
- * - 本地模式：寫到 LOCAL_STORAGE_DIR/key，回 /storage-local/{key} URL
+ * - Forge 模式：上傳到 Manus S3
+ * - R2 模式：上傳到 Cloudflare R2 bucket
+ * - 本地模式：寫到 LOCAL_STORAGE_DIR/key
  */
 export async function storagePut(
   relKey: string,
@@ -55,7 +96,20 @@ export async function storagePut(
 ): Promise<{ key: string; url: string }> {
   const key = appendHashSuffix(normalizeKey(relKey));
 
-  if (useLocalStorage()) {
+  // R2 模式
+  if (isR2Configured() && !ENV.forgeApiUrl) {
+    const client = getR2Client();
+    await client.send(new PutObjectCommand({
+      Bucket: getR2Bucket(),
+      Key: key,
+      Body: data as any,
+      ContentType: contentType,
+    }));
+    return { key, url: getR2PublicUrl(key) };
+  }
+
+  // 本地模式（最優先於 Forge）
+  if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
     const dir = getLocalDir();
     const fullPath = path.join(dir, key);
     await fs.mkdir(path.dirname(fullPath), { recursive: true });
@@ -103,16 +157,27 @@ export async function storagePut(
 
 export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
-  if (useLocalStorage()) {
+
+  if (isR2Configured() && !ENV.forgeApiUrl) {
+    return { key, url: getR2PublicUrl(key) };
+  }
+
+  if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
     return { key, url: `/storage-local/${key}` };
   }
+
   return { key, url: `/manus-storage/${key}` };
 }
 
 export async function storageGetSignedUrl(relKey: string): Promise<string> {
-  if (useLocalStorage()) {
+  if (isR2Configured() && !ENV.forgeApiUrl) {
+    return getR2PublicUrl(normalizeKey(relKey));
+  }
+
+  if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
     return `/storage-local/${normalizeKey(relKey)}`;
   }
+
   const { forgeUrl, forgeKey } = getForgeConfig();
   const key = normalizeKey(relKey);
 
@@ -138,7 +203,21 @@ export async function storageGetSignedUrl(relKey: string): Promise<string> {
 export async function storageDelete(relKey: string): Promise<void> {
   const key = normalizeKey(relKey);
 
-  if (useLocalStorage()) {
+  // R2 模式
+  if (isR2Configured() && !ENV.forgeApiUrl) {
+    try {
+      await getR2Client().send(new DeleteObjectCommand({
+        Bucket: getR2Bucket(),
+        Key: key,
+      }));
+    } catch (err) {
+      console.warn(`[storageDelete R2] ${key} error:`, err);
+    }
+    return;
+  }
+
+  // 本地模式
+  if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
     try {
       await fs.unlink(path.join(getLocalDir(), key));
     } catch {
@@ -147,6 +226,7 @@ export async function storageDelete(relKey: string): Promise<void> {
     return;
   }
 
+  // Forge 模式
   const { forgeUrl, forgeKey } = getForgeConfig();
 
   const deleteUrl = new URL("v1/storage/delete", forgeUrl + "/");
@@ -159,10 +239,10 @@ export async function storageDelete(relKey: string): Promise<void> {
     });
     if (!resp.ok) {
       const msg = await resp.text().catch(() => resp.statusText);
-      console.warn(`[storageDelete] ${key} failed (${resp.status}): ${msg}`);
+      console.warn(`[storageDelete forge] ${key} failed (${resp.status}): ${msg}`);
     }
   } catch (err) {
-    console.warn(`[storageDelete] ${key} error:`, err);
+    console.warn(`[storageDelete forge] ${key} error:`, err);
   }
 }
 
