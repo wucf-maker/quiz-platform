@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: quiz-platform
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm install --legacy-peer-deps && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        sync: false  # 在 Render dashboard 設定（MySQL 連線字串）
+      - key: JWT_SECRET
+        generateValue: true
+      - key: TEACHER_PASSWORD
+        sync: false  # 在 Render dashboard 設定登入密碼
+      - key: LOCAL_STORAGE_DIR
+        value: /opt/render/project/src/uploads
+    disk:
+      name: uploads
+      mountPath: /opt/render/project/src/uploads
+      sizeGB: 1

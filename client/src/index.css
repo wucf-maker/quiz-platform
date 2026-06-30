@@ -1,0 +1,683 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ─── Memphis Color Palette ─────────────────────────────────────────────── */
+:root {
+  /* Memphis Core Colors */
+  --memphis-peach: #FFE5D9;
+  --memphis-peach-dark: #FFD0BC;
+  --memphis-mint: #B8F0D8;
+  --memphis-mint-dark: #7EDDB0;
+  --memphis-lavender: #D4C5F9;
+  --memphis-lavender-dark: #B09EF0;
+  --memphis-yellow: #FFF3A3;
+  --memphis-yellow-dark: #FFE566;
+  --memphis-coral: #FF8C7A;
+  --memphis-blue: #A8D8EA;
+  --memphis-pink: #FFB3C6;
+  --memphis-black: #1A1A1A;
+  --memphis-white: #FFFFFF;
+
+  /* Semantic tokens */
+  --radius: 0.75rem;
+  --background: oklch(0.97 0.02 30);
+  --foreground: oklch(0.13 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.13 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.13 0 0);
+  --primary: oklch(0.55 0.22 270);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.92 0.05 150);
+  --secondary-foreground: oklch(0.2 0 0);
+  --muted: oklch(0.95 0.01 30);
+  --muted-foreground: oklch(0.5 0 0);
+  --accent: oklch(0.88 0.08 270);
+  --accent-foreground: oklch(0.2 0 0);
+  --destructive: oklch(0.6 0.22 25);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.85 0.02 30);
+  --input: oklch(0.85 0.02 30);
+  --ring: oklch(0.55 0.22 270);
+  --chart-1: oklch(0.7 0.18 150);
+  --chart-2: oklch(0.65 0.2 270);
+  --chart-3: oklch(0.75 0.15 60);
+  --chart-4: oklch(0.6 0.22 25);
+  --chart-5: oklch(0.7 0.15 200);
+  --sidebar: oklch(0.97 0.02 30);
+  --sidebar-foreground: oklch(0.13 0 0);
+  --sidebar-primary: oklch(0.55 0.22 270);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.92 0.05 150);
+  --sidebar-accent-foreground: oklch(0.2 0 0);
+  --sidebar-border: oklch(0.85 0.02 30);
+  --sidebar-ring: oklch(0.55 0.22 270);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Nunito", "Nunito Sans", system-ui, sans-serif;
+  --font-heading: "Nunito", system-ui, sans-serif;
+}
+
+/* ─── Base Styles ─────────────────────────────────────────────────────────── */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background-color: #FFE5D9;
+    font-family: "Nunito", "Nunito Sans", system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Nunito", system-ui, sans-serif;
+    font-weight: 900;
+  }
+}
+
+/* ─── Memphis Utility Classes ─────────────────────────────────────────────── */
+@layer utilities {
+  .memphis-bg {
+    background-color: #FFE5D9;
+  }
+
+  .memphis-card {
+    background: white;
+    border: 3px solid #1A1A1A;
+    border-radius: 16px;
+    box-shadow: 6px 6px 0px #1A1A1A;
+  }
+
+  .memphis-card-mint {
+    background: #B8F0D8;
+    border: 3px solid #1A1A1A;
+    border-radius: 16px;
+    box-shadow: 6px 6px 0px #1A1A1A;
+  }
+
+  .memphis-card-lavender {
+    background: #D4C5F9;
+    border: 3px solid #1A1A1A;
+    border-radius: 16px;
+    box-shadow: 6px 6px 0px #1A1A1A;
+  }
+
+  .memphis-card-yellow {
+    background: #FFF3A3;
+    border: 3px solid #1A1A1A;
+    border-radius: 16px;
+    box-shadow: 6px 6px 0px #1A1A1A;
+  }
+
+  .memphis-card-coral {
+    background: #FF8C7A;
+    border: 3px solid #1A1A1A;
+    border-radius: 16px;
+    box-shadow: 6px 6px 0px #1A1A1A;
+  }
+
+  .memphis-btn {
+    background: #1A1A1A;
+    color: white;
+    border: 3px solid #1A1A1A;
+    border-radius: 12px;
+    font-weight: 800;
+    font-family: "Nunito", sans-serif;
+    box-shadow: 4px 4px 0px #5B3FD4;
+    transition: all 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+    cursor: pointer;
+  }
+
+  .memphis-btn:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px #5B3FD4;
+  }
+
+  .memphis-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px #5B3FD4;
+  }
+
+  .memphis-btn-mint {
+    background: #B8F0D8;
+    color: #1A1A1A;
+    border: 3px solid #1A1A1A;
+    border-radius: 12px;
+    font-weight: 800;
+    font-family: "Nunito", sans-serif;
+    box-shadow: 4px 4px 0px #1A1A1A;
+    transition: all 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+    cursor: pointer;
+  }
+
+  .memphis-btn-mint:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px #1A1A1A;
+  }
+
+  .memphis-btn-mint:active {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px #1A1A1A;
+  }
+
+  .memphis-btn-lavender {
+    background: #D4C5F9;
+    color: #1A1A1A;
+    border: 3px solid #1A1A1A;
+    border-radius: 12px;
+    font-weight: 800;
+    font-family: "Nunito", sans-serif;
+    box-shadow: 4px 4px 0px #1A1A1A;
+    transition: all 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+    cursor: pointer;
+  }
+
+  .memphis-btn-lavender:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0px #1A1A1A;
+  }
+
+  .memphis-btn-coral {
+    background: #FF8C7A;
+    color: #1A1A1A;
+    border: 3px solid #1A1A1A;
+    border-radius: 12px;
+    font-weight: 800;
+    font-family: "Nunito", sans-serif;
+    box-shadow: 4px 4px 0px #1A1A1A;
+    transition: all 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+    cursor: pointer;
+  }
+
+  .memphis-heading {
+    font-family: "Nunito", sans-serif;
+    font-weight: 900;
+    color: #1A1A1A;
+    text-shadow: 3px 3px 0px rgba(0,0,0,0.12);
+    letter-spacing: -0.02em;
+  }
+
+  .memphis-input {
+    border: 3px solid #1A1A1A;
+    border-radius: 12px;
+    font-family: "Nunito", sans-serif;
+    font-weight: 700;
+    background: white;
+    transition: all 0.15s ease;
+  }
+
+  .memphis-input:focus {
+    outline: none;
+    box-shadow: 4px 4px 0px #D4C5F9;
+    border-color: #1A1A1A;
+  }
+
+  .memphis-badge {
+    border: 2px solid #1A1A1A;
+    border-radius: 999px;
+    font-weight: 800;
+    font-family: "Nunito", sans-serif;
+    font-size: 0.75rem;
+    padding: 2px 10px;
+  }
+
+  /* Memphis geometric dots pattern */
+  .memphis-dots {
+    background-image: radial-gradient(circle, #1A1A1A 1.5px, transparent 1.5px);
+    background-size: 24px 24px;
+  }
+
+  /* Memphis stripe pattern */
+  .memphis-stripes {
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 8px,
+      rgba(26,26,26,0.06) 8px,
+      rgba(26,26,26,0.06) 16px
+    );
+  }
+
+  /* Option card for quiz */
+  .quiz-option {
+    border: 3px solid #1A1A1A;
+    border-radius: 14px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+    font-family: "Nunito", sans-serif;
+    font-weight: 700;
+  }
+
+  .quiz-option:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 5px 5px 0px #1A1A1A;
+    background: #FFF3A3;
+  }
+
+  .quiz-option.selected {
+    background: #D4C5F9;
+    box-shadow: 5px 5px 0px #1A1A1A;
+    transform: translate(-2px, -2px);
+  }
+
+  .quiz-option.correct {
+    background: #B8F0D8;
+    box-shadow: 5px 5px 0px #1A1A1A;
+  }
+
+  .quiz-option.incorrect {
+    background: #FF8C7A;
+    box-shadow: 5px 5px 0px #1A1A1A;
+  }
+}
+
+/* ─── SEN Accessibility Tokens ─────────────────────────────────────────────── */
+/* 透過 <html data-font-scale="..."> 與 [data-contrast="..."] 等 attribute 控制 */
+
+:root {
+  --a11y-font-scale: 1; /* 基礎字體倍率 */
+}
+
+/* 字體大小調節：四個級別，逐級放大 25% */
+html[data-font-scale="standard"] { --a11y-font-scale: 1; }
+html[data-font-scale="large"] { --a11y-font-scale: 1.25; }
+html[data-font-scale="xlarge"] { --a11y-font-scale: 1.5; }
+html[data-font-scale="xxlarge"] { --a11y-font-scale: 1.85; }
+
+/* 全域字體倍率 — 透過把倍率套到 html 上，讓 rem 單位自動放大 */
+html[data-font-scale="large"] { font-size: 112.5%; }
+html[data-font-scale="xlarge"] { font-size: 125%; }
+html[data-font-scale="xxlarge"] { font-size: 140%; }
+
+/* ─── 高對比度模式：黑底黃字 ───────────────────────────────────────────── */
+html[data-contrast="yellow-black"] {
+  --memphis-peach: #000000;
+  --memphis-peach-dark: #1a1a00;
+  --memphis-mint: #FFE566;
+  --memphis-mint-dark: #FFD700;
+  --memphis-lavender: #FFFF99;
+  --memphis-lavender-dark: #FFD700;
+  --memphis-yellow: #FFFF00;
+  --memphis-yellow-dark: #FFD700;
+  --memphis-coral: #FF8C7A;
+  --memphis-blue: #87CEEB;
+  --memphis-pink: #FFB3C6;
+  --memphis-black: #FFFFFF;
+  --memphis-white: #000000;
+  --background: #000000;
+  --foreground: #FFFF00;
+  --card: #000000;
+  --card-foreground: #FFFF00;
+  --border: #FFFF00;
+  --input: #FFFF00;
+  --ring: #FFFF00;
+}
+html[data-contrast="yellow-black"] body { background-color: #000000 !important; color: #FFFF00 !important; }
+html[data-contrast="yellow-black"] .memphis-bg { background-color: #000000 !important; }
+html[data-contrast="yellow-black"] .memphis-card,
+html[data-contrast="yellow-black"] .memphis-card-mint,
+html[data-contrast="yellow-black"] .memphis-card-lavender,
+html[data-contrast="yellow-black"] .memphis-card-yellow,
+html[data-contrast="yellow-black"] .memphis-card-coral {
+  background: #000000 !important;
+  color: #FFFF00 !important;
+  border-color: #FFFF00 !important;
+  box-shadow: 6px 6px 0px #FFFF00 !important;
+}
+html[data-contrast="yellow-black"] .memphis-btn,
+html[data-contrast="yellow-black"] .memphis-btn-mint,
+html[data-contrast="yellow-black"] .memphis-btn-lavender,
+html[data-contrast="yellow-black"] .memphis-btn-coral {
+  background: #FFFF00 !important;
+  color: #000000 !important;
+  border-color: #FFFF00 !important;
+  box-shadow: 4px 4px 0px #FFFFFF !important;
+}
+html[data-contrast="yellow-black"] .memphis-heading,
+html[data-contrast="yellow-black"] h1, html[data-contrast="yellow-black"] h2, html[data-contrast="yellow-black"] h3 {
+  color: #FFFF00 !important;
+  text-shadow: 3px 3px 0px #000 !important;
+}
+html[data-contrast="yellow-black"] .memphis-input {
+  background: #000 !important;
+  color: #FFFF00 !important;
+  border-color: #FFFF00 !important;
+}
+html[data-contrast="yellow-black"] .quiz-option {
+  background: #000 !important;
+  color: #FFFF00 !important;
+  border-color: #FFFF00 !important;
+}
+html[data-contrast="yellow-black"] .quiz-option.selected,
+html[data-contrast="yellow-black"] .quiz-option:hover {
+  background: #FFFF00 !important;
+  color: #000 !important;
+}
+
+/* ─── 高對比度模式：白底黑字 ───────────────────────────────────────────── */
+html[data-contrast="black-white"] {
+  --memphis-peach: #FFFFFF;
+  --memphis-peach-dark: #F0F0F0;
+  --memphis-mint: #F0F0F0;
+  --memphis-mint-dark: #D0D0D0;
+  --memphis-lavender: #F0F0F0;
+  --memphis-lavender-dark: #D0D0D0;
+  --memphis-yellow: #FFFFE0;
+  --memphis-yellow-dark: #FFE566;
+  --memphis-coral: #DDDDDD;
+  --memphis-blue: #E0E0E0;
+  --memphis-pink: #F5F5F5;
+  --memphis-black: #000000;
+  --memphis-white: #FFFFFF;
+  --background: #FFFFFF;
+  --foreground: #000000;
+  --card: #FFFFFF;
+  --card-foreground: #000000;
+  --border: #000000;
+  --input: #000000;
+  --ring: #000000;
+}
+html[data-contrast="black-white"] body { background-color: #FFFFFF !important; color: #000000 !important; }
+html[data-contrast="black-white"] .memphis-bg { background-color: #FFFFFF !important; }
+html[data-contrast="black-white"] .memphis-card,
+html[data-contrast="black-white"] .memphis-card-mint,
+html[data-contrast="black-white"] .memphis-card-lavender,
+html[data-contrast="black-white"] .memphis-card-yellow,
+html[data-contrast="black-white"] .memphis-card-coral {
+  background: #FFFFFF !important;
+  color: #000000 !important;
+  border-color: #000000 !important;
+  box-shadow: 6px 6px 0px #000000 !important;
+}
+html[data-contrast="black-white"] .memphis-btn,
+html[data-contrast="black-white"] .memphis-btn-mint,
+html[data-contrast="black-white"] .memphis-btn-lavender,
+html[data-contrast="black-white"] .memphis-btn-coral {
+  background: #000000 !important;
+  color: #FFFFFF !important;
+  border-color: #000000 !important;
+  box-shadow: 4px 4px 0px #000000 !important;
+}
+html[data-contrast="black-white"] .memphis-heading,
+html[data-contrast="black-white"] h1, html[data-contrast="black-white"] h2, html[data-contrast="black-white"] h3 {
+  color: #000000 !important;
+  text-shadow: 3px 3px 0px rgba(0,0,0,0.2) !important;
+}
+html[data-contrast="black-white"] .memphis-input {
+  background: #FFF !important;
+  color: #000 !important;
+  border-color: #000 !important;
+}
+html[data-contrast="black-white"] .quiz-option {
+  background: #FFF !important;
+  color: #000 !important;
+  border-color: #000 !important;
+}
+html[data-contrast="black-white"] .quiz-option.selected,
+html[data-contrast="black-white"] .quiz-option:hover {
+  background: #000 !important;
+  color: #FFF !important;
+}
+
+/* ─── 簡化模式：隱藏 Memphis 裝飾、減少動畫 ─────────────────────────────── */
+html[data-simplified="true"] .memphis-bg {
+  background-color: #FAFAFA !important;
+}
+html[data-simplified="true"] .memphis-decoration,
+html[data-simplified="true"] [class*="memphis-dot-"],
+html[data-simplified="true"] [class*="memphis-stripe-"],
+html[data-simplified="true"] [class*="memphis-squiggle-"],
+html[data-simplified="true"] [class*="memphis-zigzag-"] {
+  display: none !important;
+}
+html[data-simplified="true"] .memphis-card,
+html[data-simplified="true"] .memphis-card-mint,
+html[data-simplified="true"] .memphis-card-lavender,
+html[data-simplified="true"] .memphis-card-yellow,
+html[data-simplified="true"] .memphis-card-coral {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+  transition: none !important;
+}
+html[data-simplified="true"] .memphis-btn,
+html[data-simplified="true"] .memphis-btn-mint,
+html[data-simplified="true"] .memphis-btn-lavender,
+html[data-simplified="true"] .memphis-btn-coral {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+  transition: none !important;
+}
+html[data-simplified="true"] .memphis-btn:hover,
+html[data-simplified="true"] .memphis-btn-mint:hover,
+html[data-simplified="true"] .memphis-btn-lavender:hover,
+html[data-simplified="true"] .memphis-btn-coral:hover,
+html[data-simplified="true"] .quiz-option:hover {
+  transform: none !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+}
+html[data-simplified="true"] .quiz-option {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important;
+  transition: none !important;
+}
+html[data-simplified="true"] .quiz-option.selected {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12) !important;
+  transform: none !important;
+}
+html[data-simplified="true"] *,
+html[data-simplified="true"] *::before,
+html[data-simplified="true"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* ─── SEN 工具列樣式 ──────────────────────────────────────────────────── */
+.a11y-toolbar {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 50;
+  background: white;
+  border: 3px solid #1A1A1A;
+  border-radius: 14px;
+  box-shadow: 5px 5px 0 #1A1A1A;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: "Nunito", sans-serif;
+}
+
+.a11y-toolbar-btn {
+  min-width: 40px;
+  min-height: 40px;
+  border: 2px solid #1A1A1A;
+  border-radius: 8px;
+  background: white;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  font-size: 14px;
+  color: #1A1A1A;
+  transition: all 0.15s;
+}
+.a11y-toolbar-btn:hover {
+  background: #FFF3A3;
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 #1A1A1A;
+}
+.a11y-toolbar-btn[aria-pressed="true"] {
+  background: #D4C5F9;
+  box-shadow: inset 2px 2px 0 #1A1A1A;
+}
+.a11y-toolbar-btn:focus-visible {
+  outline: 3px solid #5B3FD4;
+  outline-offset: 2px;
+}
+
+.a11y-toolbar-popover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  background: white;
+  border: 3px solid #1A1A1A;
+  border-radius: 14px;
+  box-shadow: 6px 6px 0 #1A1A1A;
+  padding: 12px;
+  min-width: 240px;
+  font-family: "Nunito", sans-serif;
+}
+.a11y-toolbar-popover h4 {
+  font-weight: 900;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: #1A1A1A;
+}
+.a11y-toolbar-popover .row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+/* TTS 朗讀按鈕（在題目旁邊） */
+.tts-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 2px solid #1A1A1A;
+  background: #FFF3A3;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 18px;
+  padding: 0;
+}
+.tts-btn:hover {
+  background: #FFE566;
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 #1A1A1A;
+}
+.tts-btn:focus-visible {
+  outline: 3px solid #5B3FD4;
+  outline-offset: 2px;
+}
+.tts-btn[aria-pressed="true"] {
+  background: #D4C5F9;
+  animation: tts-pulse 1.4s ease-in-out infinite;
+}
+@keyframes tts-pulse {
+  0%, 100% { box-shadow: 2px 2px 0 #1A1A1A; }
+  50% { box-shadow: 2px 2px 0 #1A1A1A, 0 0 0 4px rgba(212,197,249,0.6); }
+}
+
+/* 焦點可見性增強（鍵盤導航） */
+:focus-visible {
+  outline: 3px solid #5B3FD4;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 跳到主要內容的連結 */
+.skip-to-main {
+  position: absolute;
+  top: -100px;
+  left: 8px;
+  background: #1A1A1A;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 800;
+  z-index: 100;
+  transition: top 0.2s;
+}
+.skip-to-main:focus {
+  top: 8px;
+}
+
+/* 高對比度模式下的 TTS 按鈕顏色覆寫 */
+html[data-contrast] .tts-btn {
+  background: #FFFF00 !important;
+  color: #000 !important;
+  border-color: #FFFF00 !important;
+}
+
+/* ─── Container ───────────────────────────────────────────────────────────── */
+.container {
+  @apply mx-auto px-4;
+  max-width: 1200px;
+}
+
+/* ─── Flex min-size fix ───────────────────────────────────────────────────── */
+.flex {
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ─── Button active scale ─────────────────────────────────────────────────── */
+button:active {
+  transform: scale(0.97);
+}
+
+/* ─── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FFE5D9;
+}
+::-webkit-scrollbar-thumb {
+  background: #D4C5F9;
+  border-radius: 4px;
+  border: 2px solid #1A1A1A;
+}
