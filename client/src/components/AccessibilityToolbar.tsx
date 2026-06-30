@@ -8,8 +8,24 @@
  */
 
 import { useState, useRef, useEffect } from "react";
-import { useAccessibility, FontScale, ContrastMode } from "@/contexts/AccessibilityContext";
-import { Type, Contrast, Eye, Volume2, RotateCcw, X } from "lucide-react";
+import {
+  useAccessibility,
+  FontScale,
+  ContrastMode,
+  LineHeight,
+  FontFamily,
+  TextColor,
+} from "@/contexts/AccessibilityContext";
+import {
+  Type,
+  Contrast,
+  Eye,
+  Volume2,
+  RotateCcw,
+  X,
+  AlignJustify,
+  Palette,
+} from "lucide-react";
 
 export function AccessibilityToolbar() {
   const [open, setOpen] = useState(false);
@@ -23,6 +39,14 @@ export function AccessibilityToolbar() {
     setSimplifiedMode,
     ttsEnabled,
     setTtsEnabled,
+    ttsRate,
+    setTtsRate,
+    lineHeight,
+    setLineHeight,
+    fontFamily,
+    setFontFamily,
+    textColor,
+    setTextColor,
     resetAll,
   } = useAccessibility();
 
@@ -63,6 +87,24 @@ export function AccessibilityToolbar() {
     { value: "normal", label: "普通" },
     { value: "yellow-black", label: "黑底黃字" },
     { value: "black-white", label: "白底黑字" },
+  ];
+
+  const lineHeightOptions: { value: LineHeight; label: string }[] = [
+    { value: "normal", label: "正常" },
+    { value: "relaxed", label: "寬鬆" },
+    { value: "loose", label: "很寬" },
+  ];
+
+  const fontFamilyOptions: { value: FontFamily; label: string }[] = [
+    { value: "default", label: "預設" },
+    { value: "dyslexic", label: "閱讀友善" },
+    { value: "comic", label: "圓體" },
+  ];
+
+  const textColorOptions: { value: TextColor; label: string; color: string }[] = [
+    { value: "default", label: "黑", color: "#1A1A1A" },
+    { value: "blue", label: "藍", color: "#1E3A8A" },
+    { value: "green", label: "綠", color: "#14532D" },
   ];
 
   return (
@@ -141,7 +183,78 @@ export function AccessibilityToolbar() {
             </button>
           </div>
 
-          {/* TTS 開關 */}
+          {/* 行距 */}
+          <div style={{ marginBottom: 12 }}>
+            <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <AlignJustify size={14} /> 行距
+            </h4>
+            <div className="row">
+              {lineHeightOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setLineHeight(opt.value)}
+                  aria-pressed={lineHeight === opt.value}
+                  className="a11y-toolbar-btn"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 字型（含 Dyslexia 友善） */}
+          <div style={{ marginBottom: 12 }}>
+            <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Type size={14} /> 字型
+            </h4>
+            <div className="row">
+              {fontFamilyOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setFontFamily(opt.value)}
+                  aria-pressed={fontFamily === opt.value}
+                  className="a11y-toolbar-btn"
+                  style={{
+                    fontFamily:
+                      opt.value === "dyslexic"
+                        ? '"OpenDyslexic", sans-serif'
+                        : opt.value === "comic"
+                        ? '"Comic Neue", cursive'
+                        : undefined,
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 題目字色（色弱、色盲友善） */}
+          <div style={{ marginBottom: 12 }}>
+            <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Palette size={14} /> 題目字色
+            </h4>
+            <div className="row">
+              {textColorOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setTextColor(opt.value)}
+                  aria-pressed={textColor === opt.value}
+                  className="a11y-toolbar-btn"
+                  style={{
+                    borderColor: opt.color,
+                    borderWidth: 3,
+                    color: opt.color,
+                    fontWeight: 700,
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* TTS 開關 + 語速 */}
           <div style={{ marginBottom: 12 }}>
             <h4 style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <Volume2 size={14} /> 語音朗讀
@@ -154,9 +267,26 @@ export function AccessibilityToolbar() {
             >
               {ttsEnabled ? "朗讀功能已開啟" : "朗讀功能關閉"}
             </button>
-            <p style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
-              開啟後題目旁會出現喇叭按鈕
-            </p>
+            {ttsEnabled && (
+              <div style={{ marginTop: 6 }}>
+                <label
+                  htmlFor="tts-rate"
+                  style={{ fontSize: 11, color: "#666", display: "block" }}
+                >
+                  語速：{ttsRate.toFixed(1)}×
+                </label>
+                <input
+                  id="tts-rate"
+                  type="range"
+                  min="0.5"
+                  max="2.0"
+                  step="0.1"
+                  value={ttsRate}
+                  onChange={(e) => setTtsRate(parseFloat(e.target.value))}
+                  style={{ width: "100%" }}
+                />
+              </div>
+            )}
           </div>
 
           {/* 重置 */}

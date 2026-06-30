@@ -334,6 +334,54 @@ html[data-font-scale="large"] { font-size: 112.5%; }
 html[data-font-scale="xlarge"] { font-size: 125%; }
 html[data-font-scale="xxlarge"] { font-size: 140%; }
 
+/* 行距（LINE_HEIGHT 變數由 AccessibilityContext 設為 inline style） */
+html {
+  line-height: var(--a11y-line-height, 1.5);
+  font-family: var(--a11y-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif);
+}
+
+/* 題目文字顏色（覆蓋 #1A1A1A — 對色弱、色盲友善） */
+html[data-text-color="blue"] .quiz-question,
+html[data-text-color="blue"] .question-text,
+html[data-text-color="blue"] h1,
+html[data-text-color="blue"] h2,
+html[data-text-color="blue"] h3,
+html[data-text-color="blue"] label,
+html[data-text-color="blue"] p:not([class*="text-"]):not([class*="text/"]) {
+  color: #1E3A8A !important;
+}
+html[data-text-color="green"] .quiz-question,
+html[data-text-color="green"] .question-text,
+html[data-text-color="green"] h1,
+html[data-text-color="green"] h2,
+html[data-text-color="green"] h3,
+html[data-text-color="green"] label,
+html[data-text-color="green"] p:not([class*="text-"]):not([class*="text/"]) {
+  color: #14532D !important;
+}
+
+/* 行距視覺反饋（簡化模式時不啟用 line-height override） */
+html[data-line-height="relaxed"] { line-height: 1.8 !important; }
+html[data-line-height="loose"] { line-height: 2.1 !important; }
+
+/* 字型 */
+html[data-font-family="dyslexic"] body,
+html[data-font-family="dyslexic"] .quiz-question,
+html[data-font-family="dyslexic"] .question-text,
+html[data-font-family="dyslexic"] p,
+html[data-font-family="dyslexic"] label,
+html[data-font-family="dyslexic"] button {
+  font-family: "OpenDyslexic", -apple-system, "Microsoft JhengHei", sans-serif !important;
+}
+html[data-font-family="comic"] body,
+html[data-font-family="comic"] .quiz-question,
+html[data-font-family="comic"] .question-text,
+html[data-font-family="comic"] p,
+html[data-font-family="comic"] label,
+html[data-font-family="comic"] button {
+  font-family: "Comic Neue", "Microsoft JhengHei", "DFKai-SB", cursive !important;
+}
+
 /* ─── 高對比度模式：黑底黃字 ───────────────────────────────────────────── */
 html[data-contrast="yellow-black"] {
   --memphis-peach: #000000;

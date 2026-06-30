@@ -6,6 +6,7 @@ import { ChevronRight, ChevronLeft, CheckCircle, XCircle, Trophy, RotateCcw, Ref
 import { MemphisBackground } from "@/components/MemphisDecorations";
 import MatchingQuestion from "@/components/MatchingQuestion";
 import { AccessibilityToolbar, TTSButton } from "@/components/AccessibilityToolbar";
+import StudentOnboardingModal, { hasOnboarded } from "@/components/StudentOnboardingModal";
 import { useAccessibility } from "@/contexts/AccessibilityContext";
 import { useDraftAutosave, loadDraft, clearDraft, type DraftPayload } from "@/lib/draft";
 
@@ -63,6 +64,12 @@ export default function QuizPage() {
 
   const [phase, setPhase] = useState<Phase>("name");
   const [studentName, setStudentName] = useState("");
+
+  // 學生首次進入作答頁的偏好設定彈窗（一次性，已 onboarded 則不彈）
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !hasOnboarded();
+  });
 
   // 學生歷史提交查詢（只在結果頁展開時才查）
   const [showHistory, setShowHistory] = useState(false);
@@ -482,7 +489,7 @@ export default function QuizPage() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-start gap-2">
-                      <p className="font-black text-xl text-[#1A1A1A] leading-snug flex-1">
+                      <p className="quiz-question font-black text-xl text-[#1A1A1A] leading-snug flex-1">
                         {q.questionText}
                       </p>
                       <TTSButton text={q.questionText} label="朗讀題目" />
@@ -543,6 +550,9 @@ export default function QuizPage() {
           </div>
         </div>
         <AccessibilityToolbar />
+        {showOnboarding && (
+          <StudentOnboardingModal onClose={() => setShowOnboarding(false)} />
+        )}
       </div>
     );
   }
@@ -662,7 +672,7 @@ export default function QuizPage() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-black text-sm flex-1">
+                      <p className="quiz-question font-black text-sm flex-1">
                         Q{idx + 1}. {fb.questionText}
                       </p>
                       <TTSButton
@@ -845,7 +855,7 @@ export default function QuizPage() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-black text-sm flex-1">
+                      <p className="quiz-question font-black text-sm flex-1">
                         Q{idx + 1}. {fb.questionText}
                       </p>
                       <TTSButton

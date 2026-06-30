@@ -15,6 +15,9 @@ import {
   ChevronRight,
   UserCog,
   UserPlus,
+  School,
+  Pencil,
+  BarChart3,
 } from "lucide-react";
 import { MemphisBackground } from "@/components/MemphisDecorations";
 import CreateAssessmentModal from "@/components/CreateAssessmentModal";
@@ -37,6 +40,74 @@ export default function TeacherDashboard() {
 
   // 教師管理狀態
   const [showTeacherMgmt, setShowTeacherMgmt] = useState(false);
+
+  // 班級管理狀態
+  const [showClassMgmt, setShowClassMgmt] = useState(false);
+  const [newClassName, setNewClassName] = useState("");
+  const [newClassDesc, setNewClassDesc] = useState("");
+  const [editingClassId, setEditingClassId] = useState<number | null>(null);
+  const [editClassName, setEditClassName] = useState("");
+  const [editClassDesc, setEditClassDesc] = useState("");
+
+  const classesQuery = trpc.classes.list.useQuery(undefined, {
+    enabled: showClassMgmt,
+  });
+  const createClassMutation = trpc.classes.create.useMutation({
+    onSuccess: () => {
+      toast.success("已建立新班級");
+      setNewClassName("");
+      setNewClassDesc("");
+      classesQuery.refetch();
+    },
+    onError: (e) => toast.error(e.message || "建立失敗"),
+  });
+  const deleteClassMutation = trpc.classes.delete.useMutation({
+    onSuccess: () => {
+      toast.success("已刪除班級（綁到的測驗改為不綁任何班級）");
+      classesQuery.refetch();
+    },
+    onError: (e) => toast.error(e.message || "刪除失敗"),
+  });
+  const updateClassMutation = trpc.classes.update.useMutation({
+    onSuccess: () => {
+      toast.success("已更新");
+      setEditingClassId(null);
+      classesQuery.refetch();
+    },
+    onError: (e) => toast.error(e.message || "更新失敗"),
+  });
+
+  const handleCreateClass = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClassName.trim()) {
+      toast.error("請輸入班級名稱");
+      return;
+    }
+    createClassMutation.mutate({
+      name: newClassName.trim(),
+      description: newClassDesc.trim() || undefined,
+    });
+  };
+
+  const handleDeleteClass = (id: number, name: string) => {
+    if (confirm(`確定要刪除班級「${name}」嗎？綁到這個班級的測驗會自動改為不綁任何班級。`)) {
+      deleteClassMutation.mutate({ id });
+    }
+  };
+
+  const handleSaveEditClass = (id: number) => {
+    updateClassMutation.mutate({
+      id,
+      name: editClassName.trim() || undefined,
+      description: editClassDesc.trim() || null,
+    });
+  };
+
+  const startEditClass = (c: { id: number; name: string; description: string | null }) => {
+    setEditingClassId(c.id);
+    setEditClassName(c.name);
+    setEditClassDesc(c.description ?? "");
+  };
   const [newTeacherUsername, setNewTeacherUsername] = useState("");
   const [newTeacherDisplay, setNewTeacherDisplay] = useState("");
   const [newTeacherPassword, setNewTeacherPassword] = useState("");
@@ -317,6 +388,192 @@ export default function TeacherDashboard() {
           onClose={() => setQrTarget(null)}
         />
       )}
+
+      {/* 班級管理（建立班級 → 可在測驗編輯指定 → ClassResults 看作答統計） */}
+      <section
+        className="relative z-10 container pb-8"
+        aria-label="班級管理"
+      >
+        <button
+          onClick={() => setShowClassMgmt(!showClassMgmt)}
+          className="memphis-card p-4 w-full flex items-center justify-between hover:shadow-[6px_6px_0_#1A1A1A] transition-shadow"
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-lg bg-[#B8F0D8] border-2 border-[#1A1A1A] flex items-center justify-center"
+              aria-hidden="true"
+            >
+              <School size={18} />
+            </div>
+            <span className="font-black text-lg">班級管理</span>
+          </div>
+          <ChevronRight
+            size={20}
+            className={`transition-transform ${showClassMgmt ? "rotate-90" : ""}`}
+            aria-hidden="true"
+          />
+        </button>
+
+        {showClassMgmt && (
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* 新增班級表單 */}
+            <div className="memphis-card p-6">
+              <h3 className="font-black text-lg mb-3 flex items-center gap-2">
+                <PlusCircle size={18} aria-hidden="true" />
+                建立新班級
+              </h3>
+              <form onSubmit={handleCreateClass} className="space-y-3">
+                <div>
+                  <label
+                    htmlFor="new-c-name"
+                    className="block text-xs font-bold mb-1"
+                  >
+                    班級名稱 <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    id="new-c-name"
+                    type="text"
+                    value={newClassName}
+                    onChange={(e) => setNewClassName(e.target.value)}
+                    placeholder="例如：3A 班 / SEN 小組 / 早會"
+                    className="memphis-input w-full px-3 py-2 text-sm"
+                    maxLength={128}
+                    required
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="new-c-desc"
+                    className="block text-xs font-bold mb-1"
+                  >
+                    備註（選填）
+                  </label>
+                  <input
+                    id="new-c-desc"
+                    type="text"
+                    value={newClassDesc}
+                    onChange={(e) => setNewClassDesc(e.target.value)}
+                    placeholder="例如：每週三早上用"
+                    className="memphis-input w-full px-3 py-2 text-sm"
+                    maxLength={256}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={createClassMutation.isPending}
+                  className="memphis-btn-mint w-full py-2 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <PlusCircle size={16} />
+                  建立
+                </button>
+              </form>
+            </div>
+
+            {/* 班級列表 */}
+            <div className="memphis-card p-6">
+              <h3 className="font-black text-lg mb-3 flex items-center gap-2">
+                <Users size={18} aria-hidden="true" />
+                現有班級
+              </h3>
+              {classesQuery.isLoading ? (
+                <p className="text-sm font-semibold text-[#1A1A1A]/50">載入中…</p>
+              ) : classesQuery.data && classesQuery.data.length > 0 ? (
+                <ul className="space-y-2">
+                  {classesQuery.data.map((c) => {
+                    const isEditing = editingClassId === c.id;
+                    return (
+                      <li
+                        key={c.id}
+                        className="p-3 rounded-lg border-2 border-[#1A1A1A]/10"
+                      >
+                        {isEditing ? (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={editClassName}
+                              onChange={(e) => setEditClassName(e.target.value)}
+                              className="memphis-input w-full px-2 py-1 text-sm"
+                              maxLength={128}
+                            />
+                            <input
+                              type="text"
+                              value={editClassDesc}
+                              onChange={(e) => setEditClassDesc(e.target.value)}
+                              placeholder="備註"
+                              className="memphis-input w-full px-2 py-1 text-xs"
+                              maxLength={256}
+                            />
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => handleSaveEditClass(c.id)}
+                                disabled={updateClassMutation.isPending}
+                                className="flex-1 memphis-btn-mint py-1 text-xs"
+                              >
+                                儲存
+                              </button>
+                              <button
+                                onClick={() => setEditingClassId(null)}
+                                className="flex-1 py-1 text-xs border-2 border-[#1A1A1A] rounded-lg bg-white hover:bg-[#FFE5D9]"
+                              >
+                                取消
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-bold text-sm truncate">
+                                {c.name}
+                              </div>
+                              {c.description && (
+                                <div className="text-xs text-[#1A1A1A]/50 font-semibold truncate">
+                                  {c.description}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Link href={`/teacher/class/${c.id}`}>
+                                <button
+                                  className="w-8 h-8 flex items-center justify-center border-2 border-[#1A1A1A] rounded-lg bg-[#FFF3A3] hover:bg-[#FFE566]"
+                                  aria-label={`查看 ${c.name} 的作答統計`}
+                                  title="查看作答統計"
+                                >
+                                  <BarChart3 size={14} />
+                                </button>
+                              </Link>
+                              <button
+                                onClick={() => startEditClass(c)}
+                                className="w-8 h-8 flex items-center justify-center border-2 border-[#1A1A1A] rounded-lg bg-white hover:bg-[#D4C5F9]"
+                                aria-label={`編輯 ${c.name}`}
+                                title="編輯"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteClass(c.id, c.name)}
+                                disabled={deleteClassMutation.isPending}
+                                className="w-8 h-8 flex items-center justify-center border-2 border-[#1A1A1A] rounded-lg bg-white hover:bg-[#FF8C7A] disabled:opacity-50"
+                                aria-label={`刪除 ${c.name}`}
+                                title="刪除"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="text-sm font-semibold text-[#1A1A1A]/50">
+                  還沒有任何班級。建立後可在測驗編輯頁把測驗綁到班級。
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* 教師管理（超管可建/刪除其他教師） */}
       <section

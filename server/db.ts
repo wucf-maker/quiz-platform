@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import {
@@ -421,6 +421,92 @@ export async function deleteClass(id: number, teacherId: number) {
   await db
     .delete(classes)
     .where(and(eq(classes.id, id), eq(classes.teacherId, teacherId)));
+}
+
+export async function updateClass(
+  id: number,
+  teacherId: number,
+  data: { name?: string; description?: string | null }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const update: Record<string, unknown> = {};
+  if (typeof data.name === "string") update.name = data.name;
+  if (data.description !== undefined) update.description = data.description;
+  await db
+    .update(classes)
+    .set(update)
+    .where(and(eq(classes.id, id), eq(classes.teacherId, teacherId)));
+}
+
+/**
+ * 班級統計：班級下的測驗數、學生數、平均分
+ * 邏輯：透過 assessments.classId 找到該班的測驗，再 join submissions 算統計
+ */
+export async function getClassStats(id: number, teacherId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  // 先驗證班級屬於這個老師
+  const clsRows = await db
+    .select()
+    .from(classes)
+    .where(and(eq(classes.id, id), eq(classes.teacherId, teacherId)))
+    .limit(1);
+  if (clsRows.length === 0) return null;
+  const cls = clsRows[0];
+
+  // 班級下測驗數
+  const assessmentRows = await db
+    .select({ id: assessments.id, title: assessments.title })
+    .from(assessments)
+    .where(and(eq(assessments.classId, id), eq(assessments.teacherId, teacherId)));
+
+  const assessmentIds = assessmentRows.map((a) => a.id);
+
+  if (assessmentIds.length === 0) {
+    return {
+      class: cls,
+      assessmentCount: 0,
+      submissionCount: 0,
+      uniqueStudentCount: 0,
+      avgScorePercent: 0,
+      recentSubmissions: [],
+      assessments: [],
+    };
+  }
+
+  // 提交數與分數
+  const submissionRows = await db
+    .select({
+      id: studentSubmissions.id,
+      studentName: studentSubmissions.studentName,
+      totalScore: studentSubmissions.totalScore,
+      maxScore: studentSubmissions.maxScore,
+      assessmentId: studentSubmissions.assessmentId,
+      submittedAt: studentSubmissions.submittedAt,
+    })
+    .from(studentSubmissions)
+    .where(inArray(studentSubmissions.assessmentId, assessmentIds))
+    .orderBy(desc(studentSubmissions.submittedAt))
+    .limit(200);
+
+  const uniqueStudents = new Set(submissionRows.map((s) => s.studentName));
+  const totalPct = submissionRows.reduce((sum, s) => {
+    return s.maxScore > 0 ? sum + (s.totalScore / s.maxScore) * 100 : sum;
+  }, 0);
+  const avgScorePercent =
+    submissionRows.length > 0 ? Math.round(totalPct / submissionRows.length) : 0;
+
+  return {
+    class: cls,
+    assessmentCount: assessmentRows.length,
+    submissionCount: submissionRows.length,
+    uniqueStudentCount: uniqueStudents.size,
+    avgScorePercent,
+    recentSubmissions: submissionRows.slice(0, 20),
+    assessments: assessmentRows,
+  };
 }
 
 // ──────────────────────────────────────────────────────────────────────

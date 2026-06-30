@@ -30,6 +30,8 @@ import {
   createClass,
   getClassesByTeacher,
   deleteClass,
+  updateClass,
+  getClassStats,
   getUserByUsername,
   createTeacherAccount,
   listTeachers,
@@ -571,6 +573,29 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         await deleteClass(input.id, ctx.user.id);
         return { success: true };
+      }),
+
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          name: z.string().min(1).max(128).optional(),
+          description: z.string().max(512).optional().nullable(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { id, ...data } = input;
+        await updateClass(id, ctx.user.id, data);
+        return { success: true };
+      }),
+
+    /** 班級統計：測驗數、學生數、平均分、最近作答 */
+    stats: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const result = await getClassStats(input.id, ctx.user.id);
+        if (!result) throw new TRPCError({ code: "NOT_FOUND" });
+        return result;
       }),
   }),
 });

@@ -10,6 +10,7 @@ import LoginPage from "./pages/Login";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import AssessmentEditor from "./pages/AssessmentEditor";
 import AssessmentResults from "./pages/AssessmentResults";
+import ClassResults from "./pages/ClassResults";
 import QuizPage from "./pages/QuizPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -35,6 +36,11 @@ function Router() {
       <Route path="/teacher/assessment/:id/results">
         <ProtectedRoute>
           <AssessmentResults />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/teacher/class/:id">
+        <ProtectedRoute>
+          <ClassResults />
         </ProtectedRoute>
       </Route>
 
