@@ -400,11 +400,26 @@ export const appRouter = router({
         const qs = await getQuestionsByAssessment(a.id);
         // Strip correct answers from public response
         const safeQuestions = qs.map(({ correctAnswer, ...rest }) => rest);
+
+        // 找出班級清單：測驗綁定的班級 + 同老師的其他班級（讓學生可選自己屬於哪班）
+        let classOptions: { id: number; name: string }[] = [];
+        const allClasses = await getClassesByTeacher(a.teacherId);
+        if (a.classId) {
+          // 測驗已綁定班級 → 只給該班（不讓學生亂選）
+          const bound = allClasses.find((c) => c.id === a.classId);
+          if (bound) classOptions = [{ id: bound.id, name: bound.name }];
+        } else {
+          // 沒綁定 → 給老師所有班（讓學生自選自己屬於哪班）
+          classOptions = allClasses.map((c) => ({ id: c.id, name: c.name }));
+        }
+
         return {
           id: a.id,
           title: a.title,
           description: a.description,
           shareToken: a.shareToken,
+          classId: a.classId,
+          classOptions,
           questions: safeQuestions,
         };
       }),
@@ -414,6 +429,7 @@ export const appRouter = router({
         z.object({
           assessmentId: z.number(),
           studentName: z.string().min(1).max(128),
+          classId: z.number().int().positive().optional().nullable(),
           answers: z.array(
             z.object({
               questionId: z.number(),
@@ -448,6 +464,7 @@ export const appRouter = router({
         const submissionId = await createSubmission(
           {
             assessmentId: input.assessmentId,
+            classId: input.classId ?? null,
             studentName: input.studentName,
             totalScore,
             maxScore,

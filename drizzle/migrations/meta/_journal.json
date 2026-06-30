@@ -15,6 +15,13 @@
       "when": 1782803886252,
       "tag": "0001_add_teacher_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782808974174,
+      "tag": "0002_add_submission_classid",
+      "breakpoints": true
     }
   ]
 }

@@ -107,6 +107,7 @@ export type InsertQuestion = typeof questions.$inferInsert;
 export const studentSubmissions = pgTable("student_submissions", {
   id: serial("id").primaryKey(),
   assessmentId: integer("assessmentId").notNull(),
+  classId: integer("classId"), // 學生選的班級（測驗可能有綁定班級）
   studentName: varchar("studentName", { length: 128 }).notNull(),
   totalScore: integer("totalScore").notNull().default(0),
   maxScore: integer("maxScore").notNull().default(0),

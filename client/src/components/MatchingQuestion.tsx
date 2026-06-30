@@ -95,6 +95,9 @@ export default function MatchingQuestion({ options, currentAnswer, onAnswer }: P
       const lr = leftBtn.getBoundingClientRect();
       const rr = rightBtn.getBoundingClientRect();
 
+      // 跳過尺寸為 0 的按鈕（圖片還沒載入完）
+      if (lr.width === 0 || rr.width === 0) continue;
+
       // 取左右 button 各自的右邊/左邊中點
       const x1 = lr.right - containerRect.left;
       const y1 = lr.top + lr.height / 2 - containerRect.top;
@@ -119,12 +122,23 @@ export default function MatchingQuestion({ options, currentAnswer, onAnswer }: P
     // 監聽 window resize
     const onResize = () => recomputeConnections();
     window.addEventListener("resize", onResize);
-    // ResizeObserver 監聽容器尺寸變化（簡化模式下裝飾消失可能改變佈局）
+    // ResizeObserver 監聽容器尺寸變化（圖片載入、簡化模式切換都會觸發）
     const ro = new ResizeObserver(() => recomputeConnections());
     if (containerRef.current) ro.observe(containerRef.current);
+    // 圖片載入後也重算（避免初次 render 圖片 height=0 的 race）
+    const imgs = containerRef.current?.querySelectorAll("img") ?? [];
+    const onImgLoad = () => recomputeConnections();
+    imgs.forEach((img) => {
+      if (!img.complete) img.addEventListener("load", onImgLoad);
+      img.addEventListener("error", onImgLoad);
+    });
     return () => {
       window.removeEventListener("resize", onResize);
       ro.disconnect();
+      imgs.forEach((img) => {
+        img.removeEventListener("load", onImgLoad);
+        img.removeEventListener("error", onImgLoad);
+      });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairs, options]);
@@ -191,9 +205,11 @@ export default function MatchingQuestion({ options, currentAnswer, onAnswer }: P
         {connections.length > 0 && (
           <svg
             className="absolute inset-0 pointer-events-none"
-            width={containerSize.width}
-            height={containerSize.height}
-            style={{ zIndex: 1 }}
+            width="100%"
+            height="100%"
+            preserveAspectRatio="none"
+            viewBox={`0 0 ${containerSize.width || 1} ${containerSize.height || 1}`}
+            style={{ zIndex: 1, overflow: "visible" }}
             aria-hidden="true"
           >
             <defs>

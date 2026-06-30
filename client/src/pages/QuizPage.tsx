@@ -6,7 +6,6 @@ import { ChevronRight, ChevronLeft, CheckCircle, XCircle, Trophy, RotateCcw, Ref
 import { MemphisBackground } from "@/components/MemphisDecorations";
 import MatchingQuestion from "@/components/MatchingQuestion";
 import { AccessibilityToolbar, TTSButton } from "@/components/AccessibilityToolbar";
-import StudentOnboardingModal, { hasOnboarded } from "@/components/StudentOnboardingModal";
 import { useAccessibility } from "@/contexts/AccessibilityContext";
 import { useDraftAutosave, loadDraft, clearDraft, type DraftPayload } from "@/lib/draft";
 
@@ -64,12 +63,21 @@ export default function QuizPage() {
 
   const [phase, setPhase] = useState<Phase>("name");
   const [studentName, setStudentName] = useState("");
+  const [studentClassId, setStudentClassId] = useState<number | null>(null);
 
-  // 學生首次進入作答頁的偏好設定彈窗（一次性，已 onboarded 則不彈）
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return !hasOnboarded();
-  });
+  // 測驗載入後，若只有 1 個班級選項，自動選中（避免學生還要點）
+  useEffect(() => {
+    if (
+      quiz &&
+      Array.isArray((quiz as any).classOptions) &&
+      (quiz as any).classOptions.length === 1 &&
+      studentClassId === null
+    ) {
+      setStudentClassId((quiz as any).classOptions[0].id);
+    }
+  }, [quiz, studentClassId]);
+
+  // 學生偏好設定：不再自動彈窗，學生需要時自己點右下角 ♿ 按鈕
 
   // 學生歷史提交查詢（只在結果頁展開時才查）
   const [showHistory, setShowHistory] = useState(false);
@@ -133,6 +141,15 @@ export default function QuizPage() {
   const handleStart = (options?: { resumeFromDraft?: DraftPayload }) => {
     if (!studentName.trim()) {
       toast.error("請輸入你的姓名");
+      return;
+    }
+    // 如果有多個班級選項且學生沒選，提醒
+    if (
+      (quiz as any)?.classOptions &&
+      (quiz as any).classOptions.length > 1 &&
+      studentClassId === null
+    ) {
+      toast.error("請選擇你的班級");
       return;
     }
     if (options?.resumeFromDraft) {
@@ -225,6 +242,7 @@ export default function QuizPage() {
       const res = await submitMutation.mutateAsync({
         assessmentId: quiz.id,
         studentName: studentName.trim(),
+        classId: studentClassId,
         answers: answerList,
       });
       setResult(res as SubmitResult);
@@ -349,6 +367,45 @@ export default function QuizPage() {
                 aria-required="true"
               />
             </div>
+
+            {/* 班級選擇（如有） */}
+            {quiz?.classOptions && quiz.classOptions.length > 0 && (
+              <div className="mb-6">
+                <label
+                  htmlFor="student-class"
+                  className="block font-black text-sm mb-2 text-left"
+                >
+                  你的班級{" "}
+                  {quiz.classOptions.length === 1 ? (
+                    <span className="text-xs text-[#1A1A1A]/50 font-semibold">
+                      （已自動選擇）
+                    </span>
+                  ) : (
+                    <span className="text-[#FF8C7A]">*</span>
+                  )}
+                </label>
+                <select
+                  id="student-class"
+                  value={studentClassId ?? ""}
+                  onChange={(e) =>
+                    setStudentClassId(
+                      e.target.value ? Number(e.target.value) : null
+                    )
+                  }
+                  className="memphis-input w-full px-4 py-3 text-base"
+                  disabled={quiz.classOptions.length === 1}
+                >
+                  {quiz.classOptions.length > 1 && (
+                    <option value="">— 請選擇你的班級 —</option>
+                  )}
+                  {quiz.classOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* 草稿恢復提示 */}
             {pendingDraft && Object.keys(pendingDraft.answers).length > 0 && (
@@ -550,9 +607,6 @@ export default function QuizPage() {
           </div>
         </div>
         <AccessibilityToolbar />
-        {showOnboarding && (
-          <StudentOnboardingModal onClose={() => setShowOnboarding(false)} />
-        )}
       </div>
     );
   }
