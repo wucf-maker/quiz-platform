@@ -1,11 +1,11 @@
-// Preconfigured storage helpers — 支援三種模式：
-//   1. Manus Forge（預設）— 透過 presigned URL 上傳到 S3（Manus 平台專用）
-//   2. Cloudflare R2 — 透過 S3 相容 API 上傳到 R2 bucket（推薦：永久免費 10GB）
-//   3. 本地檔案系統 — 直接寫到磁碟（自架 / Render + Disk）
+// Preconfigured storage helpers — 支援四種模式：
+//   1. Manus Forge（預設）— Manus 平台專用 S3 替代
+//   2. 通用 S3（Cloudflare R2 / Backblaze B2 / AWS S3）— S3 相容 API
+//   3. 本地檔案系統 — 自架 / Render + Disk
 //
 // 模式選擇（按優先級）：
 //   - 有 BUILT_IN_FORGE_API_URL + BUILT_IN_FORGE_API_KEY → Forge
-//   - 有 R2_* 4 個變數 → R2
+//   - 有 S3_* 環境變數 → S3 模式（自動判斷 R2 / B2 / AWS）
 //   - 否則 → 本地
 
 import fs from "fs/promises";
@@ -28,44 +28,53 @@ function getForgeConfig() {
 
 /** 是否使用本地儲存（最優先）*/
 function useLocalStorage(): boolean {
-  return !ENV.forgeApiUrl && !ENV.forgeApiKey && !isR2Configured();
+  return !ENV.forgeApiUrl && !ENV.forgeApiKey && !isS3Configured();
 }
 
-/** R2 是否設定齊全 */
-function isR2Configured(): boolean {
+/** S3 模式是否設定齊全 */
+function isS3Configured(): boolean {
+  // 接受新變數 S3_* 或舊變數 R2_*（向下相容）
   return !!(
-    process.env.R2_ACCOUNT_ID &&
-    process.env.R2_ACCESS_KEY_ID &&
-    process.env.R2_SECRET_ACCESS_KEY &&
-    process.env.R2_BUCKET
+    (process.env.S3_ENDPOINT || process.env.R2_ENDPOINT) &&
+    (process.env.S3_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID) &&
+    (process.env.S3_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY) &&
+    (process.env.S3_BUCKET || process.env.R2_BUCKET)
   );
 }
 
-let _r2Client: S3Client | null = null;
-function getR2Client(): S3Client {
-  if (!_r2Client) {
-    _r2Client = new S3Client({
-      region: "auto",
-      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+let _s3Client: S3Client | null = null;
+function getS3Client(): S3Client {
+  if (!_s3Client) {
+    const endpoint = process.env.S3_ENDPOINT || process.env.R2_ENDPOINT!;
+    const region = process.env.S3_REGION || (endpoint.includes("r2.cloudflarestorage.com") ? "auto" : "us-west-001");
+    _s3Client = new S3Client({
+      region,
+      endpoint,
       credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+        accessKeyId: process.env.S3_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY!,
       },
     });
   }
-  return _r2Client;
+  return _s3Client;
 }
 
-function getR2Bucket(): string {
-  return process.env.R2_BUCKET!;
+function getS3Bucket(): string {
+  return process.env.S3_BUCKET || process.env.R2_BUCKET!;
 }
 
-/** R2 public URL（假設 bucket 已開啟 public read）*/
-function getR2PublicUrl(key: string): string {
-  // 如果有設定 R2_PUBLIC_BASE，用它；否則用預設 URL
-  const base = process.env.R2_PUBLIC_BASE
-    ?? `https://${process.env.R2_BUCKET}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-  return `${base.replace(/\/+$/, "")}/${key}`;
+/** S3 public URL */
+function getS3PublicUrl(key: string): string {
+  // 用戶可設定 S3_PUBLIC_BASE 覆寫（例如 Cloudflare R2 public dev URL 或自訂 CDN）
+  const explicitBase = process.env.S3_PUBLIC_BASE || process.env.R2_PUBLIC_BASE;
+  if (explicitBase) {
+    return `${explicitBase.replace(/\/+$/, "")}/${key}`;
+  }
+  // 預設走 S3 endpoint URL（很多 S3 服務需要 signed URL，這裡先返回 endpoint-style URL）
+  const endpoint = process.env.S3_ENDPOINT || process.env.R2_ENDPOINT!;
+  const bucket = getS3Bucket();
+  // path-style: https://endpoint/bucket/key
+  return `${endpoint.replace(/\/+$/, "")}/${bucket}/${key}`;
 }
 
 function getLocalDir(): string {
@@ -86,7 +95,7 @@ function appendHashSuffix(relKey: string): string {
 /**
  * 儲存一個檔案。
  * - Forge 模式：上傳到 Manus S3
- * - R2 模式：上傳到 Cloudflare R2 bucket
+ * - S3 模式：上傳到 Cloudflare R2 / Backblaze B2 / AWS S3
  * - 本地模式：寫到 LOCAL_STORAGE_DIR/key
  */
 export async function storagePut(
@@ -96,19 +105,19 @@ export async function storagePut(
 ): Promise<{ key: string; url: string }> {
   const key = appendHashSuffix(normalizeKey(relKey));
 
-  // R2 模式
-  if (isR2Configured() && !ENV.forgeApiUrl) {
-    const client = getR2Client();
+  // S3 模式（R2 / B2 / AWS）
+  if (isS3Configured() && !ENV.forgeApiUrl) {
+    const client = getS3Client();
     await client.send(new PutObjectCommand({
-      Bucket: getR2Bucket(),
+      Bucket: getS3Bucket(),
       Key: key,
       Body: data as any,
       ContentType: contentType,
     }));
-    return { key, url: getR2PublicUrl(key) };
+    return { key, url: getS3PublicUrl(key) };
   }
 
-  // 本地模式（最優先於 Forge）
+  // 本地模式
   if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
     const dir = getLocalDir();
     const fullPath = path.join(dir, key);
@@ -120,7 +129,6 @@ export async function storagePut(
   // Forge 模式
   const { forgeUrl, forgeKey } = getForgeConfig();
 
-  // 1. Get presigned PUT URL from Forge
   const presignUrl = new URL("v1/storage/presign/put", forgeUrl + "/");
   presignUrl.searchParams.set("path", key);
 
@@ -136,7 +144,6 @@ export async function storagePut(
   const { url: s3Url } = (await presignResp.json()) as { url: string };
   if (!s3Url) throw new Error("Forge returned empty presign URL");
 
-  // 2. PUT file directly to S3
   const blob =
     typeof data === "string"
       ? new Blob([data], { type: contentType })
@@ -158,8 +165,8 @@ export async function storagePut(
 export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
   const key = normalizeKey(relKey);
 
-  if (isR2Configured() && !ENV.forgeApiUrl) {
-    return { key, url: getR2PublicUrl(key) };
+  if (isS3Configured() && !ENV.forgeApiUrl) {
+    return { key, url: getS3PublicUrl(key) };
   }
 
   if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
@@ -170,8 +177,8 @@ export async function storageGet(relKey: string): Promise<{ key: string; url: st
 }
 
 export async function storageGetSignedUrl(relKey: string): Promise<string> {
-  if (isR2Configured() && !ENV.forgeApiUrl) {
-    return getR2PublicUrl(normalizeKey(relKey));
+  if (isS3Configured() && !ENV.forgeApiUrl) {
+    return getS3PublicUrl(normalizeKey(relKey));
   }
 
   if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
@@ -203,15 +210,15 @@ export async function storageGetSignedUrl(relKey: string): Promise<string> {
 export async function storageDelete(relKey: string): Promise<void> {
   const key = normalizeKey(relKey);
 
-  // R2 模式
-  if (isR2Configured() && !ENV.forgeApiUrl) {
+  // S3 模式
+  if (isS3Configured() && !ENV.forgeApiUrl) {
     try {
-      await getR2Client().send(new DeleteObjectCommand({
-        Bucket: getR2Bucket(),
+      await getS3Client().send(new DeleteObjectCommand({
+        Bucket: getS3Bucket(),
         Key: key,
       }));
     } catch (err) {
-      console.warn(`[storageDelete R2] ${key} error:`, err);
+      console.warn(`[storageDelete S3] ${key} error:`, err);
     }
     return;
   }

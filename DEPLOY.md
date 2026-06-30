@@ -66,11 +66,32 @@ Render web service → **Environment**：
 
 ---
 
-## 🌐 方案 B：Cyclic.sh + Neon + R2（**免信用卡**，推薦）
+## 🌐 方案 B：Cyclic.sh + Neon + Backblaze B2（**免信用卡，最推薦**）
 
-[Cyclic.sh](https://cyclic.sh) 完全免費、無需信用卡，但有冷啟動（30 分鐘無人訪問會休眠）。
+[Cyclic.sh](https://cyclic.sh) 完全免費、無需信用卡，但有冷啟動（30 分鐘無人訪問會休眠）。Backblaze B2 提供 10GB 永久免費儲存（每日 250MB 下載流量免費）。
 
-### 1. 申請 Neon + R2（同上）
+### 1. 申請 Backblaze B2（5 分鐘，**不需信用卡**）
+1. 開 https://www.backblaze.com/b2 → **Sign Up**（只要 email）
+2. 點左邊 **Buckets** → **Create a Bucket**
+   - Bucket Unique Name: `quiz-platform-uploads`
+   - Files in Bucket: **Public**
+   - Lifecycle: 選 **Keep only the last version of the file**（避免刪不掉）
+3. 點進 bucket → **Bucket Settings** → 複製 **Friendly URL**（例如 `https://f004.backblazeb2.com/file/quiz-platform-uploads`）→ 這就是 `S3_PUBLIC_BASE`
+4. 左邊 **App Keys** → **Generate New Master Application Key**（或限制 Read & Write on bucket: quiz-platform-uploads）
+   - 複製 `keyID` = `S3_ACCESS_KEY_ID`
+   - 複製 `applicationKey` = `S3_SECRET_ACCESS_KEY`
+5. **Endpoint** 在 Bucket info → **Endpoint** 欄位（例如 `https://s3.us-west-004.backblazeb2.com`）→ 這就是 `S3_ENDPOINT`
+6. **Region** 在同一個地方（`us-west-004`）→ 這就是 `S3_REGION`
+
+把你拿到的 5 個值寫下來：
+```
+S3_ENDPOINT=https://s3.us-west-004.backblazeb2.com
+S3_REGION=us-west-004
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+S3_BUCKET=quiz-platform-uploads
+S3_PUBLIC_BASE=https://f004.backblazeb2.com/file/quiz-platform-uploads
+```
 
 ### 2. 去 Cyclic 註冊
 1. https://app.cyclic.sh → **Sign Up with GitHub**
@@ -86,10 +107,12 @@ Cyclic dashboard → 你的 app → **Variables**：
 | `DATABASE_URL` | Neon 連線字串 |
 | `TEACHER_PASSWORD` | 你的密碼 |
 | `JWT_SECRET` | 用 `openssl rand -hex 32` 產生 |
-| `R2_ACCOUNT_ID` | Cloudflare 給的 |
-| `R2_ACCESS_KEY_ID` | 同上 |
-| `R2_SECRET_ACCESS_KEY` | 同上 |
-| `R2_BUCKET` | `quiz-platform-uploads` |
+| `S3_ENDPOINT` | B2 endpoint |
+| `S3_REGION` | B2 region |
+| `S3_ACCESS_KEY_ID` | B2 key ID |
+| `S3_SECRET_ACCESS_KEY` | B2 application key |
+| `S3_BUCKET` | `quiz-platform-uploads` |
+| `S3_PUBLIC_BASE` | B2 Friendly URL |
 | `NODE_ENV` | `production` |
 
 點 **Save** → 自動 redeploy。
@@ -100,7 +123,25 @@ Cyclic 給你 `https://你的app名稱.cyclic.app` 網址。
 ⚠️ **Cyclic 限制**：
 - 30 分鐘無人訪問會休眠，下次訪問需等 10-30 秒冷啟動
 - 免費方案只支援 1 個 app
-- 不支援 persistent disk（這就是為什麼我們用 R2）
+- 不支援 persistent disk（這就是為什麼我們用 B2）
+
+---
+
+## 💡 環境變數參考表
+
+| Variable | 用途 | 來源 |
+|---|---|---|
+| `DATABASE_URL` | PostgreSQL 連線字串 | Neon / Supabase / Render |
+| `TEACHER_PASSWORD` | 老師登入密碼 | 自己設 |
+| `JWT_SECRET` | JWT 簽名密鑰 | `openssl rand -hex 32` |
+| `S3_ENDPOINT` | S3 相容服務的 endpoint | B2 / R2 / AWS |
+| `S3_REGION` | 服務 region | 從 bucket 資訊拿 |
+| `S3_ACCESS_KEY_ID` | API key ID | B2 App Keys |
+| `S3_SECRET_ACCESS_KEY` | API secret | B2 App Keys |
+| `S3_BUCKET` | Bucket 名稱 | 自己命名 |
+| `S3_PUBLIC_BASE` | Public URL base | B2 Friendly URL / R2 public dev URL |
+
+通用 S3 變數設計，未來切換 Cloudflare R2、AWS S3、MinIO 都只需改這 5 個值。
 
 ---
 
