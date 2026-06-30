@@ -14,7 +14,7 @@ services:
       - key: PORT
         value: 3000
       - key: DATABASE_URL
-        sync: false  # 在 Render dashboard 設定（MySQL 連線字串）
+        sync: false  # 在 Render dashboard 設定（Neon PostgreSQL 連線字串）
       - key: JWT_SECRET
         generateValue: true
       - key: TEACHER_PASSWORD

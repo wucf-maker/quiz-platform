@@ -1,5 +1,6 @@
 import { eq, and, desc, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import {
   InsertUser,
   users,
@@ -17,11 +18,18 @@ import {
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _client: ReturnType<typeof postgres> | null = null;
 
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      // Neon 需要 SSL，postgres-js 會自動偵測 `?sslmode=require` 或 neon URL
+      _client = postgres(process.env.DATABASE_URL, {
+        max: 10,
+        idle_timeout: 20,
+        connect_timeout: 10,
+      });
+      _db = drizzle(_client);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -64,7 +72,14 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   if (!values.lastSignedIn) values.lastSignedIn = new Date();
   if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
 
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+  // PostgreSQL ON CONFLICT 用 (column) 而不是 mysql 的 ON DUPLICATE KEY UPDATE
+  await db
+    .insert(users)
+    .values(values)
+    .onConflictDoUpdate({
+      target: users.openId,
+      set: updateSet,
+    });
 }
 
 export async function getUserByOpenId(openId: string) {
@@ -79,7 +94,7 @@ export async function getUserByOpenId(openId: string) {
 export async function createAssessment(data: InsertAssessment) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(assessments).values(data);
+  const [result] = await db.insert(assessments).values(data).returning();
   return result;
 }
 
@@ -118,9 +133,10 @@ export async function updateAssessment(
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
+  // updatedAt 自動更新
   await db
     .update(assessments)
-    .set(data)
+    .set({ ...data, updatedAt: new Date() })
     .where(and(eq(assessments.id, id), eq(assessments.teacherId, teacherId)));
 }
 
@@ -133,14 +149,13 @@ export async function deleteAssessment(id: number, teacherId: number) {
   const imageKeys: string[] = [];
   for (const q of qs) {
     if (q.questionImageKey) imageKeys.push(q.questionImageKey);
-    // picture_choice 的 options 裡可能也有 imageKey
     const opts = (q.options as Array<{ imageKey?: string }> | null) ?? [];
     for (const opt of opts) {
       if (opt?.imageKey) imageKeys.push(opt.imageKey);
     }
   }
 
-  // 整個刪除鏈包在一個 transaction 裡，任一步失敗就 rollback，避免留垃圾
+  // 整個刪除鏈包在一個 transaction 裡
   await db.transaction(async (tx) => {
     if (qs.length > 0) {
       for (const q of qs) {
@@ -174,11 +189,14 @@ export async function upsertQuestion(data: InsertQuestion & { id?: number }) {
   if (!db) throw new Error("DB not available");
   if (data.id) {
     const { id, ...rest } = data;
-    await db.update(questions).set(rest).where(eq(questions.id, id));
+    await db
+      .update(questions)
+      .set({ ...rest, updatedAt: new Date() })
+      .where(eq(questions.id, id));
     return id;
   } else {
-    const [result] = await db.insert(questions).values(data);
-    return (result as any).insertId as number;
+    const [result] = await db.insert(questions).values(data).returning();
+    return result.id;
   }
 }
 
@@ -200,7 +218,7 @@ export async function reorderQuestions(
   for (let i = 0; i < orderedIds.length; i++) {
     await db
       .update(questions)
-      .set({ orderIndex: i })
+      .set({ orderIndex: i, updatedAt: new Date() })
       .where(
         and(eq(questions.id, orderedIds[i]), eq(questions.assessmentId, assessmentId))
       );
@@ -215,8 +233,8 @@ export async function createSubmission(
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(studentSubmissions).values(data);
-  const submissionId = (result as any).insertId as number;
+  const [submission] = await db.insert(studentSubmissions).values(data).returning();
+  const submissionId = submission.id;
   if (answers.length > 0) {
     await db
       .insert(studentAnswers)
@@ -253,7 +271,6 @@ export async function getSubmissionWithAnswers(submissionId: number) {
 
 /**
  * 取得某學生在指定測驗的所有提交歷史。
- * 給學生端「我的歷史」按鈕使用。
  */
 export async function getStudentHistory(
   assessmentId: number,
@@ -301,44 +318,54 @@ export async function getAssessmentStats(assessmentId: number) {
     };
   }
 
-  // Score distribution
   const maxScore = qs.reduce((s, q) => s + q.score, 0);
   const avgScore =
     subs.reduce((s, sub) => s + sub.totalScore, 0) / totalSubmissions;
 
-  // Per-question stats
-  const questionStats = await Promise.all(
-    qs.map(async (q) => {
-      const answers = await db
-        .select()
-        .from(studentAnswers)
-        .where(eq(studentAnswers.questionId, q.id));
+  // 一次撈所有 answers，再 JS 分組（避免 N 次 query）
+  const allAnswers = await db
+    .select()
+    .from(studentAnswers)
+    .where(
+      sql`${studentAnswers.questionId} IN ${sql.raw(
+        `(${qs.map((q) => q.id).join(",")})`
+      )}`
+    );
 
-      const correctCount = answers.filter((a) => a.isCorrect).length;
-      const wrongAnswerMap = new Map<string, number>();
-      answers
-        .filter((a) => !a.isCorrect)
-        .forEach((a) => {
-          const key = JSON.stringify(a.studentAnswer);
-          wrongAnswerMap.set(key, (wrongAnswerMap.get(key) ?? 0) + 1);
-        });
+  const answersByQuestion = new Map<number, typeof allAnswers>();
+  for (const a of allAnswers) {
+    if (!answersByQuestion.has(a.questionId)) {
+      answersByQuestion.set(a.questionId, []);
+    }
+    answersByQuestion.get(a.questionId)!.push(a);
+  }
 
-      const wrongAnswers = Array.from(wrongAnswerMap.entries())
-        .map(([answer, count]) => ({ answer: JSON.parse(answer), count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
+  const questionStats = qs.map((q) => {
+    const answers = answersByQuestion.get(q.id) ?? [];
+    const correctCount = answers.filter((a) => a.isCorrect).length;
+    const wrongAnswerMap = new Map<string, number>();
+    answers
+      .filter((a) => !a.isCorrect)
+      .forEach((a) => {
+        const key = JSON.stringify(a.studentAnswer);
+        wrongAnswerMap.set(key, (wrongAnswerMap.get(key) ?? 0) + 1);
+      });
 
-      return {
-        questionId: q.id,
-        questionText: q.questionText,
-        questionType: q.questionType,
-        correctCount,
-        totalCount: answers.length,
-        correctRate: answers.length > 0 ? (correctCount / answers.length) * 100 : 0,
-        wrongAnswers,
-      };
-    })
-  );
+    const wrongAnswers = Array.from(wrongAnswerMap.entries())
+      .map(([answer, count]) => ({ answer: JSON.parse(answer), count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    return {
+      questionId: q.id,
+      questionText: q.questionText,
+      questionType: q.questionType,
+      correctCount,
+      totalCount: answers.length,
+      correctRate: answers.length > 0 ? (correctCount / answers.length) * 100 : 0,
+      wrongAnswers,
+    };
+  });
 
   // Score distribution buckets
   const buckets = [
@@ -370,8 +397,8 @@ export async function getAssessmentStats(assessmentId: number) {
 export async function createClass(data: InsertClass) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(classes).values(data);
-  return (result as any).insertId as number;
+  const [result] = await db.insert(classes).values(data).returning();
+  return result.id;
 }
 
 export async function getClassesByTeacher(teacherId: number) {
@@ -387,10 +414,9 @@ export async function getClassesByTeacher(teacherId: number) {
 export async function deleteClass(id: number, teacherId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  // 先把所有 classId 指向這個班的測驗的 classId 設為 null
   await db
     .update(assessments)
-    .set({ classId: null })
+    .set({ classId: null, updatedAt: new Date() })
     .where(and(eq(assessments.classId, id), eq(assessments.teacherId, teacherId)));
   await db
     .delete(classes)
