@@ -34,6 +34,11 @@ export interface MatchingPair {
   id: string;
   left: string;
   right: string;
+  // 可選：左/右項目可附加圖片
+  leftImageKey?: string;
+  leftImageUrl?: string;
+  rightImageKey?: string;
+  rightImageUrl?: string;
 }
 
 export interface QuestionEditorProps {

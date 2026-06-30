@@ -24,6 +24,10 @@ import {
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
+  // 教師帳號欄位：username 唯一、passwordHash 用 scrypt 雜湊
+  username: varchar("username", { length: 64 }).unique(),
+  passwordHash: text("passwordHash"),
+  displayName: text("displayName"),
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),

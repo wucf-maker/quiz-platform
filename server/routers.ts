@@ -30,7 +30,15 @@ import {
   createClass,
   getClassesByTeacher,
   deleteClass,
+  getUserByUsername,
+  createTeacherAccount,
+  listTeachers,
+  deleteTeacherAccount,
+  verifyPassword,
+  getDb,
 } from "./db";
+import { users } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
 
 // ─── Zod Schemas ──────────────────────────────────────────────────────────────
 
@@ -113,13 +121,51 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     /**
-     * 教師密碼登入 — 取代 Manus OAuth
-     * 接受明文密碼，比對 TEACHER_PASSWORD 環境變數
+     * 教師登入 — 支援兩種模式（向後相容）：
+     *   1. { username, password }：查詢 users 表，scrypt 比對
+     *   2. { password }：用 TEACHER_PASSWORD 環境變數（超管後門）
      * 成功後設定 HttpOnly cookie
      */
     login: publicProcedure
-      .input(z.object({ password: z.string().min(1).max(256) }))
+      .input(
+        z
+          .object({
+            username: z.string().min(1).max(64).optional(),
+            password: z.string().min(1).max(256),
+          })
+          .refine((d) => true, { message: "請輸入密碼" })
+      )
       .mutation(async ({ ctx, input }) => {
+        // 模式 1: 用戶名 + 密碼（查 DB）
+        if (input.username) {
+          const u = await getUserByUsername(input.username);
+          if (!u || !u.passwordHash || !verifyPassword(input.password, u.passwordHash)) {
+            throw new TRPCError({ code: "UNAUTHORIZED", message: "帳號或密碼錯誤" });
+          }
+          // 更新最後登入時間
+          const db = await getDb();
+          if (db) {
+            await db
+              .update(users)
+              .set({ lastSignedIn: new Date() })
+              .where(eq(users.id, u.id));
+          }
+          const token = await signTeacherSession();
+          const cookieOptions = getSessionCookieOptions(ctx.req);
+          ctx.res.cookie(COOKIE_NAME, token, {
+            ...cookieOptions,
+            maxAge: 365 * 24 * 60 * 60 * 1000,
+          });
+          return {
+            success: true,
+            user: {
+              id: u.id,
+              name: u.displayName || u.name || u.username || "Teacher",
+              role: "admin" as const,
+            },
+          };
+        }
+        // 模式 2: TEACHER_PASSWORD 環境變數（向後相容 / 超管後門）
         if (!checkTeacherPassword(input.password)) {
           throw new TRPCError({ code: "UNAUTHORIZED", message: "密碼錯誤" });
         }
@@ -127,12 +173,56 @@ export const appRouter = router({
         const cookieOptions = getSessionCookieOptions(ctx.req);
         ctx.res.cookie(COOKIE_NAME, token, {
           ...cookieOptions,
-          maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
+          maxAge: 365 * 24 * 60 * 60 * 1000,
         });
         return {
           success: true,
           user: { id: 1, name: "Teacher", role: "admin" as const },
         };
+      }),
+
+    /**
+     * 教師註冊（無需登入）— 任何人都可建立教師帳號
+     * 用法：超管第一次佈署後用它建立自己的 DB 帳號
+     */
+    register: publicProcedure
+      .input(
+        z.object({
+          username: z
+            .string()
+            .min(3, "帳號至少 3 個字")
+            .max(64, "帳號太長")
+            .regex(/^[a-zA-Z0-9_-]+$/, "帳號只能包含英數、底線、連字號"),
+          displayName: z.string().min(1, "請輸入顯示名稱").max(64),
+          password: z.string().min(6, "密碼至少 6 個字").max(256),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const exists = await getUserByUsername(input.username);
+        if (exists) {
+          throw new TRPCError({ code: "CONFLICT", message: "帳號已存在" });
+        }
+        const u = await createTeacherAccount(input);
+        return { success: true, id: u.id };
+      }),
+
+    /** 超管可列出所有教師帳號 */
+    listTeachers: protectedProcedure.query(async () => {
+      return listTeachers();
+    }),
+
+    /** 超管可刪除教師帳號（保護自己不被誤刪） */
+    deleteTeacher: protectedProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        if (input.id === ctx.user.id) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "不能刪除自己",
+          });
+        }
+        await deleteTeacherAccount(input.id);
+        return { success: true };
       }),
 
     me: publicProcedure.query((opts) => opts.ctx.user),

@@ -23,7 +23,9 @@ export default function PictureChoiceEditor({ initialData, onChange, onValidatio
 
   useEffect(() => {
     onChange({ options, correctAnswer: correct });
-    onValidationChange?.(!!correct && options.length >= 2);
+    // 必填：至少有 1 個選項有圖片 + 標記正確答案 + 至少 2 個選項
+    const hasImage = options.some((o) => !!o.imageUrl);
+    onValidationChange?.(!!correct && options.length >= 2 && hasImage);
   }, [options, correct, onChange, onValidationChange]);
 
   const handleFileChange = async (idx: number, file: File) => {
@@ -42,6 +44,15 @@ export default function PictureChoiceEditor({ initialData, onChange, onValidatio
         圖片選項（點選正確答案）<span className="text-[#FF8C7A]">*</span>
         {uploading && <span className="ml-2 text-xs text-[#1A1A1A]/60">上傳中...</span>}
       </label>
+      {options.length >= 2 && !options.some((o) => !!o.imageUrl) && (
+        <div
+          className="mb-3 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-2"
+          style={{ background: "#FFB3C6", border: "2px solid #1A1A1A" }}
+          role="alert"
+        >
+          ⚠️ 至少要上傳 1 張圖片
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3">
         {options.map((opt, idx) => (
           <div

@@ -5,6 +5,8 @@ interface MatchPair {
   id: string;
   left: string;
   right: string;
+  leftImageUrl?: string;
+  rightImageUrl?: string;
 }
 
 interface MatchAnswer {
@@ -40,7 +42,11 @@ export default function MatchingQuestion({ options, currentAnswer, onAnswer }: P
 
   // Shuffle right side for display
   const [shuffledRight] = useState(() => {
-    const rights = options.map((o) => ({ id: o.id, text: o.right }));
+    const rights = options.map((o) => ({
+      id: o.id,
+      text: o.right,
+      imageUrl: o.rightImageUrl,
+    }));
     for (let i = rights.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [rights[i], rights[j]] = [rights[j], rights[i]];
@@ -271,13 +277,25 @@ export default function MatchingQuestion({ options, currentAnswer, onAnswer }: P
                     }`}
                     style={{ background: color }}
                     aria-pressed={isSelected}
-                    aria-label={`左側項目 ${opt.left}${
+                    aria-label={`左側項目 ${opt.left || "(圖片)"}${
                       isSelected ? "，已選" : isMatched ? "，已配對" : ""
                     }`}
                   >
-                    {opt.left}
+                    {opt.leftImageUrl ? (
+                      <img
+                        src={opt.leftImageUrl}
+                        alt={opt.left || "左側項目"}
+                        className="w-full h-20 object-cover rounded-lg"
+                      />
+                    ) : null}
+                    {opt.left && (
+                      <div className="px-1 py-1 text-sm font-bold">{opt.left}</div>
+                    )}
                   </button>
-                  <TTSButton text={`左側項目：${opt.left}`} label={`朗讀左側 ${opt.left}`} />
+                  <TTSButton
+                    text={`左側項目：${opt.left || (opt.leftImageUrl ? "圖片" : "")}`}
+                    label={`朗讀左側 ${opt.left || "圖片"}`}
+                  />
                 </div>
               );
             })}
@@ -310,13 +328,25 @@ export default function MatchingQuestion({ options, currentAnswer, onAnswer }: P
                     style={{ background: color }}
                     disabled={!selectedLeft && !isMatched}
                     aria-disabled={!selectedLeft && !isMatched}
-                    aria-label={`右側項目 ${right.text}${
+                    aria-label={`右側項目 ${right.text || (right.imageUrl ? "(圖片)" : "")}${
                       isMatched ? "，已配對（點擊可取消）" : ""
                     }`}
                   >
-                    {right.text}
+                    {right.imageUrl ? (
+                      <img
+                        src={right.imageUrl}
+                        alt={right.text || "右側項目"}
+                        className="w-full h-20 object-cover rounded-lg"
+                      />
+                    ) : null}
+                    {right.text && (
+                      <div className="px-1 py-1 text-sm font-bold">{right.text}</div>
+                    )}
                   </button>
-                  <TTSButton text={`右側項目：${right.text}`} label={`朗讀右側 ${right.text}`} />
+                  <TTSButton
+                    text={`右側項目：${right.text || (right.imageUrl ? "圖片" : "")}`}
+                    label={`朗讀右側 ${right.text || "圖片"}`}
+                  />
                 </div>
               );
             })}

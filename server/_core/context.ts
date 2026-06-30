@@ -20,11 +20,16 @@ export async function createContext(
     const token = extractSessionToken(opts.req);
     const session = await verifyTeacherSession(token);
     if (session) {
-      // 老師登入：給一個固定的虛擬 user（id=1），這樣 db 的 teacherId 邏輯可以繼續跑
+      // 老師登入：優先用 session 內的 userId，否則 fallback id=1
+      // 這樣 DB 帳號登入可正常運作，每個老師看自己的測驗
+      const userId = (session as any).userId ?? 1;
       user = {
-        id: 1,
-        openId: "teacher-local",
-        name: "Teacher",
+        id: userId,
+        openId: (session as any).openId ?? "teacher-local",
+        username: null,
+        passwordHash: null,
+        displayName: (session as any).displayName ?? "Teacher",
+        name: (session as any).displayName ?? "Teacher",
         email: null,
         loginMethod: "password",
         role: "admin",

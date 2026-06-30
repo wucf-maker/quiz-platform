@@ -1075,12 +1075,17 @@ function FeedbackDetail({ feedback: fb }: { feedback: Feedback }) {
 
   if (questionType === "matching") {
     // 對於 matching 題，顯示「你的配對」與「正確配對」對比
-    const opts = options as { id: string; left: string; right: string }[] | null;
+    const opts = options as
+      | { id: string; left: string; right: string; leftImageUrl?: string; rightImageUrl?: string }[]
+      | null;
     const correctPairs = (correctAnswer as { leftId: string; rightId: string }[] | null) ?? [];
     const studentPairs = (studentAnswer as { leftId: string; rightId: string }[] | null) ?? [];
-    const getText = (leftId: string, rightId: string) => {
+    const renderPair = (leftId: string, rightId: string) => {
       const o = opts?.find((x) => x.id === leftId);
-      return o ? `${o.left} → ${o.right}` : `${leftId} → ${rightId}`;
+      const o2 = opts?.find((x) => x.id === rightId);
+      const leftText = o?.left || (o?.leftImageUrl ? "（圖）" : leftId);
+      const rightText = o2?.right || (o2?.rightImageUrl ? "（圖）" : rightId);
+      return { leftText, rightText, leftImg: o?.leftImageUrl, rightImg: o2?.rightImageUrl };
     };
 
     return (
@@ -1089,14 +1094,21 @@ function FeedbackDetail({ feedback: fb }: { feedback: Feedback }) {
           <div>
             <p className="text-red-600 mb-1">你的配對：</p>
             <div className="flex flex-col gap-1">
-              {studentPairs.map((p, i) => (
-                <div
-                  key={i}
-                  className="text-xs px-2 py-1 rounded border-2 border-red-300 bg-red-50 inline-block"
-                >
-                  {getText(p.leftId, p.rightId)}
-                </div>
-              ))}
+              {studentPairs.map((p, i) => {
+                const r = renderPair(p.leftId, p.rightId);
+                return (
+                  <div
+                    key={i}
+                    className="text-xs px-2 py-1 rounded border-2 border-red-300 bg-red-50 inline-flex items-center gap-2"
+                  >
+                    {r.leftImg && <img src={r.leftImg} alt="" className="w-6 h-6 object-cover rounded" />}
+                    <span>{r.leftText}</span>
+                    <span>→</span>
+                    {r.rightImg && <img src={r.rightImg} alt="" className="w-6 h-6 object-cover rounded" />}
+                    <span>{r.rightText}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -1106,14 +1118,21 @@ function FeedbackDetail({ feedback: fb }: { feedback: Feedback }) {
         <div>
           <p className="text-green-700 mb-1">正確配對：</p>
           <div className="flex flex-col gap-1">
-            {correctPairs.map((p, i) => (
-              <div
-                key={i}
-                className="text-xs px-2 py-1 rounded border-2 border-green-300 bg-green-50 inline-block"
-              >
-                {getText(p.leftId, p.rightId)}
-              </div>
-            ))}
+            {correctPairs.map((p, i) => {
+              const r = renderPair(p.leftId, p.rightId);
+              return (
+                <div
+                  key={i}
+                  className="text-xs px-2 py-1 rounded border-2 border-green-300 bg-green-50 inline-flex items-center gap-2"
+                >
+                  {r.leftImg && <img src={r.leftImg} alt="" className="w-6 h-6 object-cover rounded" />}
+                  <span>{r.leftText}</span>
+                  <span>→</span>
+                  {r.rightImg && <img src={r.rightImg} alt="" className="w-6 h-6 object-cover rounded" />}
+                  <span>{r.rightText}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

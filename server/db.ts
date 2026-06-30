@@ -422,3 +422,90 @@ export async function deleteClass(id: number, teacherId: number) {
     .delete(classes)
     .where(and(eq(classes.id, id), eq(classes.teacherId, teacherId)));
 }
+
+// ──────────────────────────────────────────────────────────────────────
+// 教師帳號 (scrypt 密碼雜湊，避免引入原生依賴)
+// ──────────────────────────────────────────────────────────────────────
+import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+
+const SCRYPT_KEYLEN = 64;
+const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1 } as const;
+
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, SCRYPT_KEYLEN, SCRYPT_PARAMS).toString("hex");
+  return `scrypt$${SCRYPT_PARAMS.N}$${SCRYPT_PARAMS.r}$${SCRYPT_PARAMS.p}$${salt}$${hash}`;
+}
+
+export function verifyPassword(password: string, stored: string): boolean {
+  try {
+    const parts = stored.split("$");
+    if (parts.length !== 6 || parts[0] !== "scrypt") return false;
+    const N = Number(parts[1]);
+    const r = Number(parts[2]);
+    const p = Number(parts[3]);
+    const salt = parts[4];
+    const hashHex = parts[5];
+    if (!salt || !hashHex || !Number.isFinite(N)) return false;
+    const expected = Buffer.from(hashHex, "hex");
+    const actual = scryptSync(password, salt, expected.length, { N, r, p });
+    if (expected.length !== actual.length) return false;
+    return timingSafeEqual(expected, actual);
+  } catch {
+    return false;
+  }
+}
+
+export async function getUserByUsername(username: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(users)
+    .where(eq(users.username, username))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function listTeachers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: users.id,
+      username: users.username,
+      name: users.displayName,
+      lastSignedIn: users.lastSignedIn,
+    })
+    .from(users)
+    .where(eq(users.role, "admin"))
+    .orderBy(desc(users.lastSignedIn));
+}
+
+export async function createTeacherAccount(input: {
+  username: string;
+  displayName: string;
+  password: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  const passwordHash = hashPassword(input.password);
+  const [row] = await db
+    .insert(users)
+    .values({
+      openId: `local:${input.username}`,
+      username: input.username,
+      displayName: input.displayName,
+      passwordHash,
+      role: "admin",
+      loginMethod: "local",
+    })
+    .returning();
+  return row;
+}
+
+export async function deleteTeacherAccount(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database unavailable");
+  await db.delete(users).where(and(eq(users.id, id), eq(users.role, "admin")));
+}

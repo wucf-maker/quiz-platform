@@ -8,6 +8,13 @@
       "when": 1782780063270,
       "tag": "0000_initial_postgres",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782803886252,
+      "tag": "0001_add_teacher_auth",
+      "breakpoints": true
     }
   ]
 }

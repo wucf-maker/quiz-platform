@@ -13,6 +13,8 @@ import {
   Users,
   LogOut,
   ChevronRight,
+  UserCog,
+  UserPlus,
 } from "lucide-react";
 import { MemphisBackground } from "@/components/MemphisDecorations";
 import CreateAssessmentModal from "@/components/CreateAssessmentModal";
@@ -32,6 +34,52 @@ export default function TeacherDashboard() {
 
   const [showCreate, setShowCreate] = useState(false);
   const [qrTarget, setQrTarget] = useState<{ id: number; title: string } | null>(null);
+
+  // 教師管理狀態
+  const [showTeacherMgmt, setShowTeacherMgmt] = useState(false);
+  const [newTeacherUsername, setNewTeacherUsername] = useState("");
+  const [newTeacherDisplay, setNewTeacherDisplay] = useState("");
+  const [newTeacherPassword, setNewTeacherPassword] = useState("");
+
+  const teachersQuery = trpc.auth.listTeachers.useQuery(undefined, {
+    enabled: showTeacherMgmt,
+  });
+  const createTeacherMutation = trpc.auth.register.useMutation({
+    onSuccess: () => {
+      toast.success("已建立新教師帳號");
+      setNewTeacherUsername("");
+      setNewTeacherDisplay("");
+      setNewTeacherPassword("");
+      teachersQuery.refetch();
+    },
+    onError: (e) => toast.error(e.message || "建立失敗"),
+  });
+  const deleteTeacherMutation = trpc.auth.deleteTeacher.useMutation({
+    onSuccess: () => {
+      toast.success("已刪除教師帳號");
+      teachersQuery.refetch();
+    },
+    onError: (e) => toast.error(e.message || "刪除失敗"),
+  });
+
+  const handleCreateTeacher = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTeacherUsername.trim() || !newTeacherDisplay.trim() || !newTeacherPassword.trim()) {
+      toast.error("請填寫所有欄位");
+      return;
+    }
+    createTeacherMutation.mutate({
+      username: newTeacherUsername.trim(),
+      displayName: newTeacherDisplay.trim(),
+      password: newTeacherPassword.trim(),
+    });
+  };
+
+  const handleDeleteTeacher = (id: number, name: string) => {
+    if (confirm(`確定要刪除教師「${name}」嗎？該教師的測驗資料仍會保留。`)) {
+      deleteTeacherMutation.mutate({ id });
+    }
+  };
 
   const handleDelete = (id: number, title: string) => {
     if (confirm(`確定要刪除「${title}」嗎？此操作無法復原。`)) {
@@ -269,6 +317,167 @@ export default function TeacherDashboard() {
           onClose={() => setQrTarget(null)}
         />
       )}
+
+      {/* 教師管理（超管可建/刪除其他教師） */}
+      <section
+        className="relative z-10 container pb-12"
+        aria-label="教師管理"
+      >
+        <button
+          onClick={() => setShowTeacherMgmt(!showTeacherMgmt)}
+          className="memphis-card p-4 w-full flex items-center justify-between hover:shadow-[6px_6px_0_#1A1A1A] transition-shadow"
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-lg bg-[#A8D8EA] border-2 border-[#1A1A1A] flex items-center justify-center"
+              aria-hidden="true"
+            >
+              <UserCog size={18} />
+            </div>
+            <span className="font-black text-lg">教師管理（超管後台）</span>
+          </div>
+          <ChevronRight
+            size={20}
+            className={`transition-transform ${showTeacherMgmt ? "rotate-90" : ""}`}
+            aria-hidden="true"
+          />
+        </button>
+
+        {showTeacherMgmt && (
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* 新增教師表單 */}
+            <div className="memphis-card p-6">
+              <h3 className="font-black text-lg mb-3 flex items-center gap-2">
+                <UserPlus size={18} aria-hidden="true" />
+                建立新教師帳號
+              </h3>
+              <form onSubmit={handleCreateTeacher} className="space-y-3">
+                <div>
+                  <label
+                    htmlFor="new-t-username"
+                    className="block text-xs font-bold mb-1"
+                  >
+                    帳號
+                  </label>
+                  <input
+                    id="new-t-username"
+                    type="text"
+                    value={newTeacherUsername}
+                    onChange={(e) => setNewTeacherUsername(e.target.value)}
+                    placeholder="例如：alice"
+                    className="memphis-input w-full px-3 py-2 text-sm"
+                    pattern="[a-zA-Z0-9_-]+"
+                    minLength={3}
+                    maxLength={64}
+                    required
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="new-t-display"
+                    className="block text-xs font-bold mb-1"
+                  >
+                    顯示名稱
+                  </label>
+                  <input
+                    id="new-t-display"
+                    type="text"
+                    value={newTeacherDisplay}
+                    onChange={(e) => setNewTeacherDisplay(e.target.value)}
+                    placeholder="例如：王老師"
+                    className="memphis-input w-full px-3 py-2 text-sm"
+                    maxLength={64}
+                    required
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="new-t-password"
+                    className="block text-xs font-bold mb-1"
+                  >
+                    密碼（至少 6 字）
+                  </label>
+                  <input
+                    id="new-t-password"
+                    type="text"
+                    value={newTeacherPassword}
+                    onChange={(e) => setNewTeacherPassword(e.target.value)}
+                    placeholder="可暫時明文，貼給新教師後請他立刻改"
+                    className="memphis-input w-full px-3 py-2 text-sm"
+                    minLength={6}
+                    maxLength={256}
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={createTeacherMutation.isPending}
+                  className="memphis-btn-mint w-full py-2 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <UserPlus size={16} />
+                  建立
+                </button>
+              </form>
+            </div>
+
+            {/* 教師列表 */}
+            <div className="memphis-card p-6">
+              <h3 className="font-black text-lg mb-3 flex items-center gap-2">
+                <Users size={18} aria-hidden="true" />
+                現有教師帳號
+              </h3>
+              {teachersQuery.isLoading ? (
+                <p className="text-sm font-semibold text-[#1A1A1A]/50">載入中…</p>
+              ) : teachersQuery.data && teachersQuery.data.length > 0 ? (
+                <ul className="space-y-2">
+                  {teachersQuery.data.map((t) => {
+                    const isSelf = t.id === user?.id;
+                    return (
+                      <li
+                        key={t.id}
+                        className="flex items-center justify-between gap-2 p-2 rounded-lg border-2 border-[#1A1A1A]/10"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-sm truncate">
+                            {t.name ?? t.username}{" "}
+                            {isSelf && (
+                              <span className="text-[10px] ml-1 px-1.5 py-0.5 rounded bg-[#B8F0D8] border border-[#1A1A1A]">
+                                自己
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-[#1A1A1A]/50 font-semibold truncate">
+                            @{t.username} · 最後登入：
+                            {t.lastSignedIn
+                              ? new Date(t.lastSignedIn).toLocaleDateString("zh-TW")
+                              : "從未登入"}
+                          </div>
+                        </div>
+                        {!isSelf && (
+                          <button
+                            onClick={() =>
+                              handleDeleteTeacher(t.id, t.name ?? t.username ?? "")
+                            }
+                            disabled={deleteTeacherMutation.isPending}
+                            className="shrink-0 w-8 h-8 flex items-center justify-center border-2 border-[#1A1A1A] rounded-lg bg-white hover:bg-[#FF8C7A] transition-colors disabled:opacity-50"
+                            aria-label={`刪除 ${t.name ?? t.username}`}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="text-sm font-semibold text-[#1A1A1A]/50">
+                  還沒有任何教師帳號
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
